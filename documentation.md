@@ -26,6 +26,16 @@ Przykłady automatycznych konwersji:
 - str + int → str (konkatenacja)
 - bool w kontekście arytmetycznym → int (true = 1, false = 0)
 
+Tabela konwersji:
+
+| Z \ Na    |              **int**              |        **float**        |        **str**         |        **bool**        | **fun** |
+| :-------- | :-------------------------------: | :---------------------: | :--------------------: | :--------------------: | :-----: |
+| **int**   |                 —                 |        `1 → 1.0`        |         `"1"`          |  `0→false`, inne→true  |  Error  |
+| **float** |        `1.5→1` (obcięcie)         |            —            |        `"3.14"`        | `0.0→false`, inne→true |  Error  |
+| **str**   | jeśli zawiera liczbę, `"42"` → 42 |     `"3.14"` → 3.14     |           —            | `""→false`, inne→true  |  Error  |
+| **bool**  |        `true→1`, `false→0`        | `true→1.0`, `false→0.0` | `"true"` lub `"false"` |           —            |  Error  |
+| **fun**   |               Error               |          Error          |        `"fun"`         |          true          |    —    |
+
 ### Przykład:
 
 ```
