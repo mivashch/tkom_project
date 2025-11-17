@@ -26,23 +26,13 @@ Przykłady automatycznych konwersji:
 - str + int → str (konkatenacja)
 - bool w kontekście arytmetycznym → int (true = 1, false = 0)
 
-Tabela konwersji:
-
-| Z \ Na    |              **int**              |        **float**        |        **str**         |        **bool**        | **fun** |
-| :-------- | :-------------------------------: | :---------------------: | :--------------------: | :--------------------: | :-----: |
-| **int**   |                 —                 |        `1 → 1.0`        |         `"1"`          |  `0→false`, inne→true  |  Error  |
-| **float** |        `1.5→1` (obcięcie)         |            —            |        `"3.14"`        | `0.0→false`, inne→true |  Error  |
-| **str**   | jeśli zawiera liczbę, `"42"` → 42 |     `"3.14"` → 3.14     |           —            | `""→false`, inne→true  |  Error  |
-| **bool**  |        `true→1`, `false→0`        | `true→1.0`, `false→0.0` | `"true"` lub `"false"` |           —            |  Error  |
-| **fun**   |               Error               |          Error          |        `"fun"`         |          true          |    —    |
-
 ### Przykład:
 
 ```
-a = 10;
-b = 3.5;
-s = "Hello world";
-flag = true;
+a = 10;                 //dynamiczne typowanie
+b = 3.5;                //dynamiczne typowanie
+s = "Hello world";      //dynamiczne typowanie
+flag = true;            //dynamiczne typowanie
 
 c = a + 2 * 5;          // c = 20
 ok = (a > 5) && flag;   // ok = true
@@ -56,8 +46,10 @@ result3 = a + flag       // result3 = 11
 ## Zmienne i stałe
 
 Zmienną można zadeklarować bez określenia typu – typ jest nadawany dynamicznie.
-Zmienna może w późniejszym czasie przyjmować wartość innego typu (słabe typowanie).
+Zmienna może w późniejszym czasie przyjmować wartość innego typu (dynamiczne typowanie).
 Stała (const) nie może być ponownie przypisana.
+
+Słabe typowanie pozwala na wykonanie operacje między typami, nawet jeśli to nie ma sensu matematycznego.
 
 ### Przykład:
 
@@ -78,7 +70,7 @@ Można użyć opcjonalnego else.
 ### Przykład:
 
 ```
-int x = 10;
+x = 10;
 
 if (x > 0) {
     print("positive");
