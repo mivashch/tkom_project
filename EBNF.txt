@@ -1,0 +1,79 @@
+/* ----------------- program ----------------- */
+program        = { statement } ;
+
+/* ----------------- statements ----------------- */
+statement      = var_decl
+                | assign
+                | func_decl
+                | expr_stmt
+                | if_stmt
+                | for_stmt
+                | ";" ;
+
+expr_stmt      = func_op_expr , ";" ;
+
+/* --------------- declaration --------------- */
+var_decl       = [var_mod] , identifier , "=" , func_op_expr , ";" ;
+var_mod        =  "const" ;
+
+/* --------------- assigning --------------- */
+assign         = identifier , "=" , func_op_expr , ";" ;
+
+/* ----------------- Types ----------------- */
+type_spec      = "int" | "float" | "str" | "bool" | "fun" ;
+
+/* ----------------- functions ----------------- */
+func_decl      = "fun" , type_spec ,  identifier  , "(" , [ param_list ] , ")"  , body ;
+
+param_list     = parameter , { "," , parameter } ;
+parameter      = ["const" ] , identifier , [ ":" , type_spec ] ;
+
+body           = "{" , { statement } , [ return_stmt ] , "}" ;
+return_stmt    = "return" , func_op_expr , ";" ;
+
+if_stmt = "if" , "(" , func_op_expr , ")" , "{" , { statement } , "}"
+        , [ "else" , "{" , { statement } , "}" ] ;
+
+for_stmt = "for" , "(" , [ assign ] , ";" , func_op_expr , ";" , [ assign ] , ")"
+         , "{" , { statement } , "}" ;
+
+/* ----------- expressions and priorities ------------- */
+
+func_op_expr = logic_expr , { ("&*&" | "=>>") , logic_expr } ;
+logic_expr     = comp_expr , { ("&&" | "||") , comp_expr } ;
+comp_expr      = add_expr , [ ("==" | "!=" | "<" | "<=" | ">" | ">=") , add_expr ] ;
+add_expr       = mul_expr , { ( "+" | "-" ) , mul_expr } ;
+mul_expr       = unary_expr , { ( "*" | "/" | "%" ) , unary_expr } ;
+unary_expr     = [ "-" ] , call_or_primary ;
+
+/*----------------- function call ----------------- */
+call_or_primary = primary , { "(" , [ arg_list ] , ")" } ;
+
+arg_list       = func_op_expr , { "," , func_op_expr } ;
+
+primary        = literal
+               | identifier
+               | "(" , func_op_expr , ")"
+               ;
+
+/* ----------------- literals ----------------- */
+literal        = number | string | "true" | "false" ;
+
+/* ----------------- numbers -----------------*/
+number         = integer , [ frac_part ] ;
+integer        = "0" | non_zero_digit , { digit } ;
+frac_part      = "." , digit , { digit } ;
+non_zero_digit = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+digit          = "0" | non_zero_digit ;
+
+/*----------------- text ----------------- */
+string         = """ , { character } , """ ;
+character = unescaped | escape_sequence ;
+
+unescaped = %x20-21 | %x23-7E ;
+escape_sequence = "\\" , ( "n" | "t" | "\\" ) ;
+
+/* ----------------- identifiers ----------------- */
+identifier     = letter , { letter | digit | "_" } ;
+letter         = "A" | ... | "Z" | "a" | ... | "z" ;
+
