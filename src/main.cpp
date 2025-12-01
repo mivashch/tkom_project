@@ -40,6 +40,7 @@ int main(int argc, char **argv) {
         std::unique_ptr<Source> src;
         if (argc > 1) src = makeFileSource(argv[1]);
         else {
+            // przyklad z dokumentacji
             std::string sample = R"(
 fun int add(int a, int b) {
     return a + b;
