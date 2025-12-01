@@ -94,7 +94,7 @@ namespace minilang {
             src_->get();
             int c2 = src_->peek();
             src_->get();
-            if (c2 == '|') return makeToken(TokenKind::Operator, "|/", std::monostate{}, line, col);
+            if (c2 == '|') return makeToken(TokenKind::Operator, "||", std::monostate{}, line, col);
         }
         if (ch == '!' || ch == '<' || ch == '>') {
             src_->get();
@@ -109,7 +109,7 @@ namespace minilang {
         if (ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%') {
             src_->get();
             std::string s(1, ch);
-            if (isalpha(src_->peek()) || isdigit(src_->peek()) || isspace(src_->peek()) || src_->peek() == -1) {
+            if (isalpha(src_->peek()) || isdigit(src_->peek()) || isspace(src_->peek()) || punctuators.count(src_->peek())|| src_->peek() == -1) {
                 return makeToken(TokenKind::Operator, s, std::monostate{}, line, col);
             }
             return makeToken(TokenKind::Unknown, std::string(1,ch) + std::string(1,src_->get()) ,std::monostate{}, line, col);
@@ -210,6 +210,10 @@ namespace minilang {
                 seenDot = true;
                 buf.push_back(ch);
                 src_->get();
+                if (!isdigit(src_->peek())) {
+                    wrong = true;
+                    break;
+                }
                 continue;
             }
             else if((ch == '.' || isalpha(ch)) && seenDot) {

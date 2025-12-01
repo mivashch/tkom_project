@@ -42,32 +42,7 @@ int main(int argc, char **argv) {
         else {
             // przyklad z dokumentacji
             std::string sample = R"(
-fun int add(int a, int b) {
-    return a + b;
-}
-
-result = add(2, 3);
-fun int factorial(int n) {
-    if (n <= 1) {
-        return 1;
-    }
-    return n * factorial(n - 1);
-}
-
-f = factorial(5); // wynik: 120
-
-fun fun get_func() {
-    return inc;
-}
-
-fun int inc(int x) {
-    return x + 1;
-}
-
-get_func()(7);
-
-
-
+9.99999999999999999999999999999999999999999999999999999999999999999999999999999999999999
 )";
             src = makeStringSource(sample);
         }
