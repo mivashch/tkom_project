@@ -46,7 +46,7 @@ fun int add(int a, int b) {
     return a + b;
 }
 
-int result = add(2, 3);
+result = add(2, 3);
 fun int factorial(int n) {
     if (n <= 1) {
         return 1;
@@ -54,7 +54,7 @@ fun int factorial(int n) {
     return n * factorial(n - 1);
 }
 
-int f = factorial(5); // wynik: 120
+f = factorial(5); // wynik: 120
 
 fun fun get_func() {
     return inc;
