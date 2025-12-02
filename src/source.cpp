@@ -6,12 +6,13 @@
 #include <iomanip>
 #include <memory>
 #include <string>
+#include "tools.h"
 
 
 namespace minilang {
     class FileSource : public Source {
     public:
-        explicit FileSource(const std::string &path) : in_(path), line_(1), col_(1), lastChar_(0) {
+        explicit FileSource(const std::string &path) : in_(path), lastChar_(0) {
             if (!in_) throw std::runtime_error("Cannot open file: " + path);
         }
 
@@ -22,9 +23,9 @@ namespace minilang {
                 return -1;
             }
             if (c == '\n') {
-                ++line_;
-                col_ = 1;
-            } else ++col_;
+                ++pos_.line;
+                pos_.column = 1;
+            } else ++pos_.column;
             lastChar_ = c;
             return c;
         }
@@ -34,35 +35,34 @@ namespace minilang {
             return c == EOF ? -1 : c;
         }
 
-        size_t line() const override { return line_; }
-        size_t column() const override { return col_; }
+        Position getPosition() override {return pos_;}
 
         void unget() override {
             if (lastChar_ != 0 && lastChar_ != EOF) {
                 in_.unget();
-                if (lastChar_ == '\n') { --line_; } else --col_;
+                if (lastChar_ == '\n') { --pos_.line; } else --pos_.column;
             }
         }
 
     private:
         std::ifstream in_;
-        size_t line_, col_;
+        Position pos_;
         int lastChar_;
     };
 
 
     class StringSource : public Source {
     public:
-        explicit StringSource(const std::string &s) : s_(s), idx_(0), line_(1), col_(1) {
+        explicit StringSource(const std::string &s) : s_(s), idx_(0) {
         }
 
         int get() override {
             if (idx_ >= s_.size()) return -1;
             unsigned char c = s_[idx_++];
             if (c == '\n') {
-                ++line_;
-                col_ = 1;
-            } else ++col_;
+                ++pos_.line;
+                pos_.column = 1;
+            } else ++pos_.column;
             lastChar_ = c;
             return c;
         }
@@ -72,29 +72,29 @@ namespace minilang {
             return static_cast<unsigned char>(s_[idx_]);
         }
 
-        size_t line() const override { return line_; }
-        size_t column() const override { return col_; }
+        Position getPosition() override {return pos_;}
+
 
         void unget() override {
             if (idx_ > 0) {
                 --idx_;
                 if (lastChar_ == '\n') {
-                    --line_;
-                } else --col_;
+                    --pos_.line;
+                } else --pos_.column;
             }
         }
 
     private:
         std::string s_;
         size_t idx_;
-        size_t line_, col_;
+        Position pos_;
         int lastChar_;
     };
 
     class StreamSource : public Source {
     public:
         explicit StreamSource(std::istream &in)
-            : in_(in), line_(1), col_(1), lastChar_(0) {
+            : in_(in), lastChar_(0) {
         }
 
         int get() override {
@@ -104,9 +104,9 @@ namespace minilang {
                 return -1;
             }
             if (c == '\n') {
-                ++line_;
-                col_ = 1;
-            } else ++col_;
+                ++pos_.line;
+                pos_.column = 1;
+            } else ++pos_.column;
             lastChar_ = c;
             return c;
         }
@@ -116,28 +116,22 @@ namespace minilang {
             return c == EOF ? -1 : c;
         }
 
-        size_t line() const override {
-            return line_;
-        }
-
-        size_t column() const override {
-            return col_;
-        }
+        Position getPosition() override {return pos_;}
 
         void unget() override {
             if (lastChar_ != 0 && lastChar_ != EOF) {
                 in_.unget();
                 if (lastChar_ == '\n') {
-                    --line_;
+                    --pos_.line;
                 } else {
-                    --col_;
+                    --pos_.column;
                 }
             }
         }
 
     private:
         std::istream &in_;
-        size_t line_, col_;
+        Position pos_;
         int lastChar_;
     };
 

@@ -5,20 +5,20 @@
 #include <unordered_set>
 #include <iomanip>
 #include <memory>
+#include <algorithm>
+
 namespace minilang {
-    static const std::unordered_set<std::string> keywords = {
+    std::array<std::string, 13> keywords = {
         "fun", "return", "if", "else", "for", "const", "mut",
         "true", "false", "int", "float", "str", "bool"
     };
 
-    static const std::unordered_set<char> punctuators = {'(', ')', '{', '}', ',', ';'};
+    constexpr std::array<char, 6> punctuators = {'(', ')', '{', '}', ',', ';'};
+
 
     Lexer::Lexer(std::unique_ptr<Source> src) : src_(std::move(src)), pushbackToken_(std::nullopt) {
     }
 
-    void Lexer::reset() {
-        pushbackToken_.reset();
-    }
 
     Token Lexer::peekToken() {
         if (pushbackToken_) return *pushbackToken_;
@@ -33,97 +33,276 @@ namespace minilang {
             pushbackToken_.reset();
             return t;
         }
+
         skipWhitespaceAndComments();
-        size_t line = src_->line();
-        size_t col = src_->column();
+        Position pos = src_->getPosition();
+
+        if (src_->peek() == -1) {
+            return makeToken(TokenKind::EndOfFile, "", pos);
+        }
+
+        if (auto t = readIdentifierOrKeyword()) return *t;
+        if (auto t = readNumber()) return *t;
+        if (auto t = readString()) return *t;
+        if (auto t = handleAmpersand(pos)) return *t;
+        if (auto t = handleEquals(pos)) return *t;
+        if (auto t = handlePipe(pos)) return *t;
+        if (auto t = handleBangLtGt(pos)) return *t;
+        if (auto t = handleArithmeticOp(pos)) return *t;
+        if (auto t = handlePunctuator(pos)) return *t;
+
+        char ch = static_cast<char>(src_->get());
+        return makeToken(TokenKind::Unknown, std::string(1, ch), pos);
+    }
+
+    std::optional<Token> Lexer::readIdentifierOrKeyword() {
         int c = src_->peek();
-        if (c == -1) {
-            return makeToken(TokenKind::EndOfFile, "", std::monostate{}, line, col);
-        }
-        char ch = static_cast<char>(c);
-        if (isalpha(ch) || ch == '_') {
-            return readIdentifierOrKeyword();
-        }
-        if (isdigit(ch)) {
-            return readNumber();
-        }
-        if (ch == '"') {
-            return readString();
-        }
-        if (ch == '&') {
-            src_->get();
-            int c2 = src_->peek();
-            if (c2 == '*') {
-                src_->get();
-                int c3 = src_->peek();
-                if (c3 == '&') {
-                    src_->get();
-                    return makeToken(TokenKind::Operator, "&*&", std::monostate{}, line, col);
-                }
-                return makeToken(TokenKind::Unknown, "&*", std::monostate{}, line, col);
-            }
-            if (c2 == '&') {
-                src_->get();
-                return makeToken(TokenKind::Operator, "&&", std::monostate{}, line, col);
-            }
-            return makeToken(TokenKind::Unknown, "&", std::monostate{}, line, col);
-        }
-        if (ch == '=') {
-            src_->get();
-            int c2 = src_->peek();
-            if (c2 == '>') {
-                src_->get();
-                int c3 = src_->peek();
-                if (c3 == '>') {
-                    src_->get();
-                    return makeToken(TokenKind::Operator, "=>>", std::monostate{}, line, col);
-                }
-                return makeToken(TokenKind::Operator, "=>", std::monostate{}, line, col);
-            }
-            if (src_->peek() == '=') {
-                src_->get();
-                return makeToken(TokenKind::Operator, "==", std::monostate{}, line, col);
-            }
-            if (isalpha(src_->peek()) || isdigit(src_->peek()) || isspace(src_->peek()) ||( src_->peek() == -1)) {
-                return makeToken(TokenKind::Operator, "=", std::monostate{}, line, col);
-            }
-            return makeToken(TokenKind::Unknown, std::string(1,ch) + std::string(1,src_->get()) ,std::monostate{}, line, col);
+        if (!isalpha(c) && c != '_') return std::nullopt;
 
-        }
-        if (ch == '|') {
-            src_->get();
-            int c2 = src_->peek();
-            src_->get();
-            if (c2 == '|') return makeToken(TokenKind::Operator, "||", std::monostate{}, line, col);
-        }
-        if (ch == '!' || ch == '<' || ch == '>') {
-            src_->get();
-            int c2 = src_->peek();
-            std::string op(1, ch);
-            if (c2 == '=') {
-                src_->get();
-                op.push_back('=');
-            }
-            return makeToken(TokenKind::Operator, op, std::monostate{}, line, col);
-        }
-        if (ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%') {
-            src_->get();
-            std::string s(1, ch);
-            if (isalpha(src_->peek()) || isdigit(src_->peek()) || isspace(src_->peek()) || punctuators.count(src_->peek())|| src_->peek() == -1) {
-                return makeToken(TokenKind::Operator, s, std::monostate{}, line, col);
-            }
-            return makeToken(TokenKind::Unknown, std::string(1,ch) + std::string(1,src_->get()) ,std::monostate{}, line, col);
+        Position pos = src_->getPosition();
+        std::string buf;
 
+        buf += static_cast<char>(src_->get());
+
+        while (true) {
+            int p = src_->peek();
+            if (p == -1) break;
+            char ch = static_cast<char>(p);
+            if (!isalnum(ch) && ch != '_') break;
+            buf += static_cast<char>(src_->get());
         }
-        if (punctuators.count(ch)) {
-            src_->get();
-            std::string s(1, ch);
-            return makeToken(TokenKind::Punctuator, s, std::monostate{}, line, col);
+
+        if (buf == "true" || buf == "false") {
+            bool v = (buf == "true");
+            return makeToken(TokenKind::Bool, buf, TokenValue(v), pos);
         }
+
+        if (std::find(keywords.begin(), keywords.end(), buf) != keywords.end()) {
+            return makeToken(TokenKind::Keyword, buf, pos);
+        }
+
+        return makeToken(TokenKind::Identifier, buf, pos);
+    }
+
+    std::optional<Token> Lexer::readNumber() {
+        int c = src_->peek();
+        if (!isdigit(c)) return std::nullopt;
+
+        Position pos = src_->getPosition();
+        std::string buf;
+        bool seenDot = false;
+        bool wrong = false;
+
+        while (true) {
+            int p = src_->peek();
+            if (p == -1) break;
+            char ch = static_cast<char>(p);
+
+            if (isalpha(ch)) {
+                wrong = true;
+                buf.push_back(ch);
+                src_->get();
+                continue;
+            }
+
+            if (ch == '.' && !seenDot) {
+                seenDot = true;
+                buf.push_back(ch);
+                src_->get();
+                if (!isdigit(src_->peek())) wrong = true;
+                continue;
+            }
+
+            if ((ch == '.' || isalpha(ch)) && seenDot) {
+                wrong = true;
+                buf.push_back(ch);
+                src_->get();
+                continue;
+            }
+
+            if (!isdigit(ch) && ch != '.') break;
+
+            buf.push_back(static_cast<char>(src_->get()));
+        }
+
+        if (wrong) {
+            double v = std::stod(buf);
+            return makeToken(TokenKind::Unknown, buf, TokenValue(v), pos);
+        } else if (seenDot) {
+            double v = std::stod(buf);
+            return makeToken(TokenKind::NumberFloat, buf, TokenValue(v), pos);
+        } else if (buf.size() < 19) {
+            long long v = std::stoll(buf);
+            return makeToken(TokenKind::NumberInt, buf, TokenValue(v), pos);
+        } else {
+            return makeToken(TokenKind::Unknown, buf, pos);
+        }
+    }
+
+    std::optional<Token> Lexer::readString() {
+        if (src_->peek() != '"') return std::nullopt;
+
+        Position pos = src_->getPosition();
+        src_->get();
+
+        std::string buf;
+
+        while (true) {
+            int p = src_->get();
+            if (p == -1) throw std::runtime_error("Unterminated string literal");
+            char ch = static_cast<char>(p);
+
+            if (ch == '"') break;
+
+            if (ch == '\\') {
+                int e = src_->get();
+                if (e == -1) throw std::runtime_error("Unterminated escape in string");
+                char esc = static_cast<char>(e);
+                switch (esc) {
+                    case 'n': buf.push_back('\n');
+                        break;
+                    case 't': buf.push_back('\t');
+                        break;
+                    case '\\': buf.push_back('\\');
+                        break;
+                    case '"': buf.push_back('"');
+                        break;
+                    default: buf.push_back(esc);
+                        break;
+                }
+                continue;
+            }
+
+            buf.push_back(ch);
+        }
+
+        return makeToken(TokenKind::String, buf, TokenValue(buf), pos);
+    }
+
+    std::optional<Token> Lexer::handleAmpersand(Position pos) {
+        if (src_->peek() != '&') return std::nullopt;
 
         src_->get();
-        std::string s(1, ch);
-        return makeToken(TokenKind::Unknown, s, std::monostate{}, line, col);
+
+        int c2 = src_->peek();
+        if (c2 == '*') {
+            src_->get();
+            int c3 = src_->peek();
+            if (c3 == '&') {
+                src_->get();
+                return makeToken(TokenKind::OpRefStarRef, "&*&", pos);
+            }
+            return makeToken(TokenKind::Unknown, std::string(1, c2), pos);
+        }
+
+        if (c2 == '&') {
+            src_->get();
+            return makeToken(TokenKind::OpAnd, "&&", pos);
+        }
+
+        return makeToken(TokenKind::Unknown, std::string(1, c2), pos);
+    }
+
+    std::optional<Token> Lexer::handleEquals(Position pos) {
+        if (src_->peek() != '=') return std::nullopt;
+
+        src_->get();
+        int c2 = src_->peek();
+
+        if (c2 == '>') {
+            src_->get();
+            int c3 = src_->peek();
+            if (c3 == '>') {
+                src_->get();
+                return makeToken(TokenKind::OpDoubleArrow, "=>>", pos);
+            }
+            return makeToken(TokenKind::OpArrow, "=>", pos);
+        }
+
+        if (c2 == '=') {
+            src_->get();
+            return makeToken(TokenKind::OpEq, "==", pos);
+        }
+
+        if (isalpha(src_->peek()) || isdigit(src_->peek()) || isspace(src_->peek()) || (src_->peek() == -1)) {
+            return makeToken(TokenKind::OpAssign, "=", pos);
+        }
+        return makeToken(TokenKind::Unknown, std::string(1, c2) + std::string(1, src_->get()), pos);
+    }
+
+    std::optional<Token> Lexer::handlePipe(Position pos) {
+        if (src_->peek() != '|') return std::nullopt;
+
+        char c = src_->get();
+        if (src_->peek() == '|') {
+            src_->get();
+            return makeToken(TokenKind::OpOr, "||", pos);
+        }
+        return makeToken(TokenKind::Unknown, std::string(1, c), pos);
+    }
+
+    std::optional<Token> Lexer::handleBangLtGt(Position pos) {
+        int c = src_->peek();
+        if (c != '!' && c != '<' && c != '>') return std::nullopt;
+
+        char ch = static_cast<char>(src_->get());
+
+        switch (ch) {
+            case '!':
+                if (src_->peek() == '=') {
+                    src_->get();
+                    return makeToken(TokenKind::OpNotEq, "!=", pos);
+                }
+                return makeToken(TokenKind::OpNot, "!", pos);
+
+            case '<':
+                if (src_->peek() == '=') {
+                    src_->get();
+                    return makeToken(TokenKind::OpLessEq, "<=", pos);
+                }
+                return makeToken(TokenKind::OpLess, "<", pos);
+
+            case '>':
+                if (src_->peek() == '=') {
+                    src_->get();
+                    return makeToken(TokenKind::OpGreaterEq, ">=", pos);
+                }
+                return makeToken(TokenKind::OpGreater, ">", pos);
+        }
+        return std::nullopt;
+    }
+
+    std::optional<Token> Lexer::handleArithmeticOp(Position pos) {
+        char ch = src_->peek();
+        if (ch != '+' && ch != '-' && ch != '*' && ch != '/' && ch != '%')
+            return std::nullopt;
+        ch = static_cast<char>(src_->get());
+        if (src_->peek() == '/') {
+            return std::nullopt;
+        }
+
+        switch (ch) {
+            case '+': return makeToken(TokenKind::OpPlus, "+", pos);
+            case '-': return makeToken(TokenKind::OpMinus, "-", pos);
+            case '*': return makeToken(TokenKind::OpMul, "*", pos);
+            case '/': return makeToken(TokenKind::OpDiv, "/", pos);
+            case '%': return makeToken(TokenKind::OpMod, "%", pos);
+        }
+
+        return std::nullopt;
+    }
+
+    std::optional<Token> Lexer::handlePunctuator(Position pos) {
+        char ch = src_->peek();
+        if (!isPunctuator(ch)) return std::nullopt;
+
+        src_->get();
+        return makeToken(TokenKind::Punctuator, std::string(1, ch), pos);
+    }
+
+
+    bool Lexer::isPunctuator(char c) const {
+        return std::find(punctuators.begin(), punctuators.end(), c) != punctuators.end();
     }
 
     void Lexer::skipWhitespaceAndComments() {
@@ -164,124 +343,22 @@ namespace minilang {
         }
     }
 
-    bool Lexer::isIdentifierStart(char c) const { return std::isalpha((unsigned char) c) || c == '_'; }
-    bool Lexer::isIdentifierPart(char c) const { return std::isalnum((unsigned char) c) || c == '_'; }
 
-    Token Lexer::readIdentifierOrKeyword() {
-        size_t line = src_->line();
-        size_t col = src_->column();
-        std::string buf;
-        int c = src_->get();
-        buf.push_back(static_cast<char>(c));
-        while (true) {
-            int p = src_->peek();
-            if (p == -1) break;
-            char ch = static_cast<char>(p);
-            if (!isIdentifierPart(ch)) break;
-            buf.push_back((char) src_->get());
-        }
-        if (buf == "true" || buf == "false") {
-            bool v = (buf == "true");
-            return makeToken(TokenKind::Bool, buf, TokenValue(v), line, col);
-        }
-        if (keywords.count(buf)) {
-            return makeToken(TokenKind::Keyword, buf, std::monostate{}, line, col);
-        }
-        return makeToken(TokenKind::Identifier, buf, std::monostate{}, line, col);
-    }
-
-    Token Lexer::readNumber() {
-        size_t line = src_->line();
-        size_t col = src_->column();
-        std::string buf;
-        bool seenDot = false;
-        bool wrong = false;
-        while (true) {
-            int p = src_->peek();
-            if (p == -1) break;
-            char ch = static_cast<char>(p);
-            if (isalpha(ch)) {
-                wrong = true;
-                buf.push_back(ch);
-                src_->get();
-                continue;
-            }
-            if (ch == '.' && !seenDot) {
-                seenDot = true;
-                buf.push_back(ch);
-                src_->get();
-                if (!isdigit(src_->peek())) {
-                    wrong = true;
-                    break;
-                }
-                continue;
-            }
-            else if((ch == '.' || isalpha(ch)) && seenDot) {
-                wrong = true;
-                buf.push_back(ch);
-                src_->get();
-                continue;
-            }
-            if (!isdigit((unsigned char) ch) && (ch !='.')) break;
-            buf.push_back((char) src_->get());
-        }
-        try {
-            if (wrong) {
-                double d = std::stod(buf);
-                return makeToken(TokenKind::Unknown, buf, TokenValue(d), line, col);
-            }
-            else if (seenDot) {
-                double d = std::stod(buf);
-                return makeToken(TokenKind::NumberFloat, buf, TokenValue(d), line, col);
-            } else {
-                long long v = std::stoll(buf);
-                return makeToken(TokenKind::NumberInt, buf, TokenValue(v), line, col);
-            }
-        } catch (const std::exception &e) {
-            return makeToken(TokenKind::Unknown, buf, std::monostate{}, line, col);
-        }
-    }
-
-    Token Lexer::readString() {
-        size_t line = src_->line(), col = src_->column();
-        std::string buf;
-        int start = src_->get();
-        (void) start;
-        while (true) {
-            int p = src_->get();
-            if (p == -1) throw std::runtime_error("Unterminated string literal");
-            char ch = static_cast<char>(p);
-            if (ch == '"') break;
-            if (ch == '\\') {
-                int e = src_->get();
-                if (e == -1) throw std::runtime_error("Unterminated escape in string");
-                char esc = static_cast<char>(e);
-                switch (esc) {
-                    case 'n': buf.push_back('\n');
-                        break;
-                    case 't': buf.push_back('\t');
-                        break;
-                    case '\\': buf.push_back('\\');
-                        break;
-                    case '"': buf.push_back('"');
-                        break;
-                    default: buf.push_back(esc);
-                        break;
-                }
-                continue;
-            }
-            buf.push_back(ch);
-        }
-        return makeToken(TokenKind::String, buf, TokenValue(buf), line, col);
-    }
-
-    Token Lexer::makeToken(TokenKind kind, std::string lexeme, TokenValue value, size_t line, size_t column) {
+    Token Lexer::makeToken(TokenKind kind, std::string lexeme, TokenValue value, Position pos) {
         Token t;
-        t.kind = kind;
+        t.setKind(kind);
         t.lexeme = std::move(lexeme);
-        t.value = std::move(value);
-        t.pos.line = line;
-        t.pos.column = column;
+        t.setValue(std::move(value));
+        t.pos = pos;
+        return t;
+    }
+
+    Token Lexer::makeToken(TokenKind kind, std::string lexeme, Position pos) {
+        Token t;
+        t.setKind(kind);
+        t.lexeme = std::move(lexeme);
+        t.setValue(std::monostate{});
+        t.pos = pos;
         return t;
     }
 }

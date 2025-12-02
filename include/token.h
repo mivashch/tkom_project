@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <variant>
-#include <cstdint>
+#include "tools.h"
 
 
 namespace minilang {
@@ -13,26 +13,51 @@ namespace minilang {
         String,
         Bool,
         Keyword,
-        Operator,
+
+        OpAnd,          // &&
+        OpRefStarRef,   // &*&
+        OpAssign,       // =
+        OpEq,           // ==
+        OpArrow,        // =>
+        OpDoubleArrow,  // =>>
+        OpOr,           // ||
+        OpNot,          // !
+        OpNotEq,        // !=
+        OpLess,         // <
+        OpLessEq,       // <=
+        OpGreater,      // >
+        OpGreaterEq,    // >=
+        OpPlus,         // +
+        OpMinus,        // -
+        OpMul,          // *
+        OpDiv,          // /
+        OpMod,          // %
+
         Punctuator,
         Comment,
         Unknown
     };
 
 
-    struct Position {
-        size_t line = 1;
-        size_t column = 1;
-    };
+
+
+
 
 
     using TokenValue = std::variant<std::monostate, long long, double, std::string, bool>;
 
 
     struct Token {
-        TokenKind kind;
         std::string lexeme;
-        TokenValue value;
         Position pos;
+
+        void setValue(TokenValue val) { value = val; }
+        void setKind(TokenKind kd) { kind = kd; }
+        TokenValue getValue() const { return value; }
+        TokenKind getKind() const { return kind; }
+
+    private:
+        TokenKind kind;
+        TokenValue value;
     };
 }

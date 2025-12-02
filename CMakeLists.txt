@@ -23,6 +23,7 @@ target_include_directories(lexer_lib PUBLIC include)
 
 add_executable(lexer_demo
         src/main.cpp
+        include/tools.h
 )
 
 target_link_libraries(lexer_demo PRIVATE lexer_lib)

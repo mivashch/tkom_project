@@ -13,9 +13,7 @@ namespace minilang {
 
         virtual int peek() = 0;
 
-        virtual size_t line() const = 0;
-
-        virtual size_t column() const = 0;
+        virtual Position getPosition() = 0;
 
         virtual void unget() = 0;
     };
