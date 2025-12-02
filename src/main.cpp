@@ -6,39 +6,39 @@
 
 using namespace minilang;
 
-static const char* tokenKindToString(TokenKind k) {
+static const char *tokenKindToString(TokenKind k) {
     switch (k) {
-        case TokenKind::EndOfFile:     return "EOF";
+        case TokenKind::EndOfFile: return "EOF";
 
-        case TokenKind::Identifier:    return "IDENT";
-        case TokenKind::NumberInt:     return "INT";
-        case TokenKind::NumberFloat:   return "FLOAT";
-        case TokenKind::String:        return "STRING";
-        case TokenKind::Bool:          return "BOOL";
-        case TokenKind::Keyword:       return "KW";
+        case TokenKind::Identifier: return "IDENT";
+        case TokenKind::NumberInt: return "INT";
+        case TokenKind::NumberFloat: return "FLOAT";
+        case TokenKind::String: return "STRING";
+        case TokenKind::Bool: return "BOOL";
+        case TokenKind::Keyword: return "KW";
 
-        case TokenKind::OpAnd:         return "AND";
-        case TokenKind::OpRefStarRef:  return "REF_STAR_REF";
-        case TokenKind::OpAssign:      return "ASSIGN";
-        case TokenKind::OpEq:          return "EQ";
-        case TokenKind::OpArrow:       return "ARROW";
+        case TokenKind::OpAnd: return "AND";
+        case TokenKind::OpRefStarRef: return "REF_STAR_REF";
+        case TokenKind::OpAssign: return "ASSIGN";
+        case TokenKind::OpEq: return "EQ";
+        case TokenKind::OpArrow: return "ARROW";
         case TokenKind::OpDoubleArrow: return "DOUBLE_ARROW";
-        case TokenKind::OpOr:          return "OR";
-        case TokenKind::OpNot:         return "NOT";
-        case TokenKind::OpNotEq:       return "NEQ";
-        case TokenKind::OpLess:        return "LT";
-        case TokenKind::OpLessEq:      return "LE";
-        case TokenKind::OpGreater:     return "GT";
-        case TokenKind::OpGreaterEq:   return "GE";
-        case TokenKind::OpPlus:        return "PLUS";
-        case TokenKind::OpMinus:       return "MINUS";
-        case TokenKind::OpMul:         return "MUL";
-        case TokenKind::OpDiv:         return "DIV";
-        case TokenKind::OpMod:         return "MOD";
+        case TokenKind::OpOr: return "OR";
+        case TokenKind::OpNot: return "NOT";
+        case TokenKind::OpNotEq: return "NEQ";
+        case TokenKind::OpLess: return "LT";
+        case TokenKind::OpLessEq: return "LE";
+        case TokenKind::OpGreater: return "GT";
+        case TokenKind::OpGreaterEq: return "GE";
+        case TokenKind::OpPlus: return "PLUS";
+        case TokenKind::OpMinus: return "MINUS";
+        case TokenKind::OpMul: return "MUL";
+        case TokenKind::OpDiv: return "DIV";
+        case TokenKind::OpMod: return "MOD";
 
-        case TokenKind::Punctuator:    return "PUNC";
-        case TokenKind::Comment:       return "COMMENT";
-        case TokenKind::Unknown:       return "UNKNOWN";
+        case TokenKind::Punctuator: return "PUNC";
+        case TokenKind::Comment: return "COMMENT";
+        case TokenKind::Unknown: return "UNKNOWN";
     }
     return "???";
 }
@@ -141,7 +141,6 @@ get_func()(7);
             if (t.getKind() == TokenKind::EndOfFile)
                 break;
         }
-
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 2;
