@@ -283,7 +283,7 @@ TEST(LexerTests, VeryLargeInteger) {
 TEST(LexerTests, IntOverflow) {
     Lexer lex(makeStringSource(
         "999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"));
-    EXPECT_EQ(lex.nextToken().getKind(), TokenKind::Unknown);
+    EXPECT_THROW(lex.nextToken(), std::runtime_error);
 }
 
 TEST(LexerTests, FloatOverflow) {

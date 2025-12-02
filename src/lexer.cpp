@@ -2,7 +2,7 @@
 #include "source.h"
 #include <cctype>
 #include <stdexcept>
-#include <unordered_set>
+#include <climits>
 #include <iomanip>
 #include <memory>
 #include <algorithm>
@@ -89,55 +89,63 @@ namespace minilang {
         if (!isdigit(c)) return std::nullopt;
 
         Position pos = src_->getPosition();
-        std::string buf;
-        bool seenDot = false;
-        bool wrong = false;
+
+        long long intVal = 0;
+        double floatVal = 0.0;
+        bool isFloat = false;
+        double fracMul = 0.1;
+        char ch=' ';
 
         while (true) {
             int p = src_->peek();
             if (p == -1) break;
-            char ch = static_cast<char>(p);
+
+            ch = static_cast<char>(p);
+
+            if (isdigit(ch)) {
+                int digit = ch - '0';
+                src_->get();
+
+                if (!isFloat) {
+                    if (LLONG_MAX - intVal < digit) {
+                        throw std::runtime_error("Overflow!");
+                    }
+                    intVal = intVal * 10 + digit;
+                } else {
+                    floatVal += digit * fracMul;
+                    fracMul *= 0.1;
+                }
+
+                continue;
+            }
+
+            if (ch == '.') {
+                if (isFloat) {
+                    return makeToken(TokenKind::Unknown, std::string(1, ch), pos);
+                }
+                isFloat = true;
+                floatVal = intVal;
+                ch = src_->get();
+                if (!isdigit(src_->peek())) {
+                    return  makeToken(TokenKind::Unknown,  std::to_string(intVal)+ std::string(1, ch), pos);
+                }
+                continue;
+            }
 
             if (isalpha(ch)) {
-                wrong = true;
-                buf.push_back(ch);
-                src_->get();
-                continue;
+                return  makeToken(TokenKind::Unknown,  isFloat ? std::to_string(floatVal) : std::to_string(intVal) + std::string(1, src_->get()), pos);
             }
 
-            if (ch == '.' && !seenDot) {
-                seenDot = true;
-                buf.push_back(ch);
-                src_->get();
-                if (!isdigit(src_->peek())) wrong = true;
-                continue;
-            }
-
-            if ((ch == '.' || isalpha(ch)) && seenDot) {
-                wrong = true;
-                buf.push_back(ch);
-                src_->get();
-                continue;
-            }
-
-            if (!isdigit(ch) && ch != '.') break;
-
-            buf.push_back(static_cast<char>(src_->get()));
+            break;
         }
 
-        if (wrong) {
-            double v = std::stod(buf);
-            return makeToken(TokenKind::Unknown, buf, TokenValue(v), pos);
-        } else if (seenDot) {
-            double v = std::stod(buf);
-            return makeToken(TokenKind::NumberFloat, buf, TokenValue(v), pos);
-        } else if (buf.size() < 19) {
-            long long v = std::stoll(buf);
-            return makeToken(TokenKind::NumberInt, buf, TokenValue(v), pos);
-        } else {
-            return makeToken(TokenKind::Unknown, buf, pos);
-        }
+
+        if (!isFloat)
+            return makeToken(TokenKind::NumberInt,std::to_string(intVal), intVal, pos);
+        else
+            return makeToken(TokenKind::NumberFloat, std::to_string(floatVal), floatVal, pos);
     }
+
 
     std::optional<Token> Lexer::readString() {
         if (src_->peek() != '"') return std::nullopt;
