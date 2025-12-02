@@ -16,23 +16,11 @@ namespace minilang {
     constexpr std::array<char, 6> punctuators = {'(', ')', '{', '}', ',', ';'};
 
 
-    Lexer::Lexer(std::unique_ptr<Source> src) : src_(std::move(src)), pushbackToken_(std::nullopt) {
-    }
+    Lexer::Lexer(std::unique_ptr<Source> src) : src_(std::move(src)) {}
 
 
-    Token Lexer::peekToken() {
-        if (pushbackToken_) return *pushbackToken_;
-        auto tok = nextToken();
-        pushbackToken_ = tok;
-        return *pushbackToken_;
-    }
 
     Token Lexer::nextToken() {
-        if (pushbackToken_) {
-            Token t = *pushbackToken_;
-            pushbackToken_.reset();
-            return t;
-        }
 
         skipWhitespaceAndComments();
         Position pos = src_->getPosition();

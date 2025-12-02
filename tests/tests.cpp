@@ -605,27 +605,6 @@ TEST(LexerTests, SequenceOfTokens) {
     EXPECT_EQ(std::get<long long>(t3.getValue()), 10);
 }
 
-TEST(LexerTests, PeekTokenMultipleTimes) {
-    Lexer lex(makeStringSource("xyz"));
-
-    Token t1 = lex.peekToken();
-    Token t2 = lex.peekToken();
-    Token t3 = lex.nextToken();
-
-    EXPECT_EQ(t1.lexeme, "xyz");
-    EXPECT_EQ(t2.lexeme, "xyz");
-    EXPECT_EQ(t3.lexeme, "xyz");
-}
-
-TEST(LexerTests, PeekDoesNotConsume) {
-    Lexer lex(makeStringSource("abc"));
-
-    Token t1 = lex.peekToken();
-    Token t3 = lex.nextToken();
-
-    EXPECT_EQ(t1.lexeme, "abc");
-    EXPECT_EQ(t3.lexeme, "abc");
-}
 
 TEST(LexerTests, EOFToken) {
     Lexer lex(makeStringSource(""));

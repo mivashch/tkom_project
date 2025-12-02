@@ -13,8 +13,6 @@ namespace minilang {
 
         Token nextToken();
 
-        Token peekToken();
-
         bool isPunctuator(char c) const ;
         std::optional<Token> handleAmpersand(Position pos);
         std::optional<Token> handleEquals(Position pos);
@@ -27,8 +25,6 @@ namespace minilang {
 
     private:
         std::unique_ptr<Source> src_;
-        std::optional<Token> pushbackToken_;
-
 
         void skipWhitespaceAndComments();
 

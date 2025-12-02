@@ -106,7 +106,6 @@ int main(int argc, char **argv) {
             src = makeFileSource(argv[1]);
         } else {
             std::string sample = R"(
-10.
 fun int add(int a, int b) {
     return a + b;
 }
