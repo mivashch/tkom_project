@@ -13,7 +13,7 @@ namespace minilang {
         "true", "false", "int", "float", "str", "bool"
     };
 
-    constexpr std::array<char, 6> punctuators = {'(', ')', '{', '}', ',', ';'};
+    constexpr std::array<char, 7> punctuators = {'(', ')', '{', '}', ',', ';', ':'};
 
 
     Lexer::Lexer(std::unique_ptr<Source> src) : src_(std::move(src)) {}

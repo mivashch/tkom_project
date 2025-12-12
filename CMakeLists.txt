@@ -14,28 +14,36 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
-add_library(lexer_lib
+add_library(parser_lib
         src/source.cpp
         src/lexer.cpp
+        src/parser.cpp
 )
 
-target_include_directories(lexer_lib PUBLIC include)
+target_include_directories(parser_lib PUBLIC include)
 
-add_executable(lexer_demo
+add_executable(parser_demo
         src/main.cpp
         include/tools.h
+        include/parser.h
+        include/ast.h
+        src/parser.cpp
+        src/lexer.cpp
+        include/ast_dump.h
+        src/ast_dump.cpp
+        src/ast.cpp
 )
 
-target_link_libraries(lexer_demo PRIVATE lexer_lib)
+target_link_libraries(parser_demo PRIVATE parser_lib)
 
-add_executable(lexer_tests
+add_executable(parser_tests
         tests/tests.cpp
 )
 
-target_link_libraries(lexer_tests
+target_link_libraries(parser_tests
         PRIVATE
-        lexer_lib
+        parser_lib
         gtest_main
 )
 
-add_test(NAME LexerTests COMMAND lexer_tests)
+add_test(NAME ParserTests COMMAND parser_tests)

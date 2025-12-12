@@ -2,6 +2,7 @@
 #include <string>
 #include <istream>
 #include <memory>
+#include "tools.h"
 
 
 namespace minilang {
