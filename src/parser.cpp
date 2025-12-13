@@ -89,10 +89,15 @@ std::unique_ptr<Stmt> Parser::parseStatement() {
         }
     }
 
+    if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == "{") {
+        return parseBlock();
+    }
+
     if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == ";") {
         next();
         return std::make_unique<ExprStmt>();
     }
+
 
     auto expr = parseFuncOpExpr();
     if (!expr) return nullptr;

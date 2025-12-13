@@ -15,9 +15,15 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 add_library(parser_lib
-        src/source.cpp
-        src/lexer.cpp
+        include/tools.h
+        include/parser.h
+        include/ast.h
         src/parser.cpp
+        src/lexer.cpp
+        include/ast_dump.h
+        src/ast_dump.cpp
+        src/ast.cpp
+        src/source.cpp
 )
 
 target_include_directories(parser_lib PUBLIC include)
@@ -32,6 +38,7 @@ add_executable(parser_demo
         include/ast_dump.h
         src/ast_dump.cpp
         src/ast.cpp
+        src/source.cpp
 )
 
 target_link_libraries(parser_demo PRIVATE parser_lib)
