@@ -78,11 +78,13 @@ void AstPrinter::visit(LambdaExpr& e) {
 }
 
 void AstPrinter::visit(ExprStmt& s) {
-    pad();
-    os << "ExprStmt:\n";
-    indent++;
-    s.expr->accept(*this);
-    indent--;
+    if (s.expr) {
+        pad();
+        os << "ExprStmt:\n";
+        indent++;
+        s.expr->accept(*this);
+        indent--;
+    }
 }
 
 void AstPrinter::visit(VarDeclStmt& s) {

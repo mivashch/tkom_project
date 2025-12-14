@@ -249,7 +249,14 @@ std::unique_ptr<BlockStmt> Parser::parseBlock() {
     if (!expect(TokenKind::Punctuator, &leftBrace)) return nullptr;
     auto blk = std::make_unique<BlockStmt>();
     while (true) {
-        if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == rightBrace) { next(); break; }
+        if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == rightBrace) {
+            next();
+            break;
+        }
+        if (cur_.getKind() == TokenKind::EndOfFile ) {
+            errorAt(cur_, "Expected '}'");
+            break;
+        };
         auto st = parseStatement();
         blk->stmts.push_back(std::move(st));
     }
@@ -330,7 +337,6 @@ std::unique_ptr<Stmt> Parser::parseFor() {
             init = parseVarDecl();
             if (!init) return nullptr;
         } else if (cur_.getKind() == TokenKind::Identifier) {
-            // parse assign without consuming trailing semicolon here
             Token idtok = cur_;
             next();
             if (!expect(TokenKind::OpAssign, nullptr)) return nullptr;
@@ -347,6 +353,8 @@ std::unique_ptr<Stmt> Parser::parseFor() {
         }
     }
 
+    if (!init) return nullptr;
+
     if (!expect(TokenKind::Punctuator, &semicolon)) return nullptr;
 
     auto cond = parseFuncOpExpr();
@@ -355,6 +363,7 @@ std::unique_ptr<Stmt> Parser::parseFor() {
     if (!expect(TokenKind::Punctuator, &semicolon)) return nullptr;
 
     std::unique_ptr<Stmt> post = nullptr;
+
     if (!(cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == rightParen)) {
         if (cur_.getKind() == TokenKind::Identifier) {
             Token idtok = cur_;

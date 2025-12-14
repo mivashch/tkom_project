@@ -38,8 +38,7 @@ int main(int argc, char **argv) {
                     return x + 1;
                 }
 
-                get_func()(7);
-            )";
+                get_func()(7);)";
             src = makeStringSource(sample);
         }
 
