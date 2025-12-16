@@ -141,8 +141,9 @@ R"(Program:
 TEST(ParserTest, VarDeclSimple) {
     expectAST("x = 10;",
 R"(Program:
-  Assign(x)
-    Literal(10)
+  ExprStmt:
+    Assign(x)
+      Literal(10)
 )");
 }
 
@@ -157,8 +158,9 @@ R"(Program:
 TEST(ParserTest, AssignStmt) {
     expectAST("x = y;",
 R"(Program:
-  Assign(x)
-    Identifier(y)
+  ExprStmt:
+    Assign(x)
+      Identifier(y)
 )");
 }
 
@@ -192,8 +194,9 @@ R"(Program:
       Identifier(x)
     Then:
       Block:
-        Assign(y)
-          Literal(1)
+        ExprStmt:
+          Assign(y)
+            Literal(1)
 )");
 }
 
@@ -205,17 +208,20 @@ R"(Program:
       Identifier(x)
     Then:
       Block:
-        Assign(y)
-          Literal(1)
+        ExprStmt:
+          Assign(y)
+            Literal(1)
     Else:
       Block:
-        Assign(y)
-          Literal(2)
+        ExprStmt:
+          Assign(y)
+            Literal(2)
 )");
 }
 
 TEST(ParserTest, ForLoop) {
-    expectAST("for (i = 0; i < 10; i = i + 1) { x = x + i; }",
+  expectAST(
+      "for (i = 0; i < 10; i = i + 1) { x = x + i; }",
 R"(Program:
   For:
     Init:
@@ -232,21 +238,26 @@ R"(Program:
           Literal(1)
     Body:
       Block:
-        Assign(x)
-          Binary('+')
-            Identifier(x)
-            Identifier(i)
-)");
+        ExprStmt:
+          Assign(x)
+            Binary('+')
+              Identifier(x)
+              Identifier(i)
+)"
+  );
 }
+
 
 TEST(ParserTest, BlockMultiple) {
     expectAST("{ a = 1; b = 2; }",
 R"(Program:
   Block:
-    Assign(a)
-      Literal(1)
-    Assign(b)
-      Literal(2)
+    ExprStmt:
+      Assign(a)
+        Literal(1)
+    ExprStmt:
+      Assign(b)
+        Literal(2)
 )");
 }
 
@@ -340,8 +351,9 @@ TEST(ParserTest, NestedBlocks) {
 R"(Program:
   Block:
     Block:
-      Assign(x)
-        Literal(1)
+      ExprStmt:
+        Assign(x)
+          Literal(1)
 )");
 }
 
@@ -358,8 +370,9 @@ R"(Program:
             Identifier(b)
           Then:
             Block:
-              Assign(c)
-                Literal(1)
+              ExprStmt:
+                Assign(c)
+                  Literal(1)
 )");
 }
 
@@ -397,20 +410,24 @@ R"(Program:
                 Literal(1)
           Body:
             Block:
-              Assign(x)
-                Identifier(i)
+              ExprStmt:
+                Assign(x)
+                  Identifier(i)
 )");
 }
 
 TEST(ParserTest, MultipleStatements) {
   expectAST("a = 1; b = 2; c = 3;",
 R"(Program:
-  Assign(a)
-    Literal(1)
-  Assign(b)
-    Literal(2)
-  Assign(c)
-    Literal(3)
+  ExprStmt:
+    Assign(a)
+      Literal(1)
+  ExprStmt:
+    Assign(b)
+      Literal(2)
+  ExprStmt:
+    Assign(c)
+      Literal(3)
 )");
 }
 
@@ -509,8 +526,15 @@ R"(Program:
 
 
 TEST(ParserEdgeTest, ForMinimal) {
-  std::string out = parseAndDump("for (;;){ }");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  expectAST("for (;;){ }",
+R"(Program:
+  For:
+    Init:
+    Cond:
+    Post:
+    Body:
+      Block:
+)");
 }
 
 TEST(ParserEdgeTest, IfEmptyBlock) {
@@ -650,25 +674,15 @@ R"(Program:
 )");
 }
 
-TEST(ParserExtraTest, MultipleAssignments) {
-  expectAST("a = 1; b = 2; c = 3;",
-R"(Program:
-  Assign(a)
-    Literal(1)
-  Assign(b)
-    Literal(2)
-  Assign(c)
-    Literal(3)
-)");
-}
 
 TEST(ParserExtraTest, BlockInBlock) {
   expectAST("{ { a = 1; } }",
 R"(Program:
   Block:
     Block:
-      Assign(a)
-        Literal(1)
+      ExprStmt:
+        Assign(a)
+          Literal(1)
 )");
 }
 
@@ -682,8 +696,9 @@ R"(Program:
         Literal(0)
     Then:
       Block:
-        Assign(b)
-          Literal(1)
+        ExprStmt:
+          Assign(b)
+            Literal(1)
 )");
 }
 
@@ -700,14 +715,28 @@ R"(Program:
             Identifier(b)
           Then:
             Block:
-              Assign(c)
-                Literal(1)
+              ExprStmt:
+                Assign(c)
+                  Literal(1)
 )");
 }
 
 TEST(ParserExtraTest, ForNoInitPost) {
-  std::string out = parseAndDump("for (; i < 10; ) { x = i; }");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  expectAST("for (; i < 10; ) { x = i; }",
+R"(Program:
+  For:
+    Init:
+    Cond:
+      Binary('<')
+        Identifier(i)
+        Literal(10)
+    Post:
+    Body:
+      Block:
+        ExprStmt:
+          Assign(x)
+            Identifier(i)
+)");
 }
 
 TEST(ParserExtraTest, ForEmptyBody) {
@@ -734,44 +763,46 @@ R"(Program:
 TEST(ParserExtraTest, CallInsideExpression) {
   expectAST("a = f(1) + g(2);",
 R"(Program:
-  Assign(a)
-    Binary('+')
-      Call:
-        Callee:
-          Identifier(f)
-        Args:
-          Literal(1)
-      Call:
-        Callee:
-          Identifier(g)
-        Args:
-          Literal(2)
+  ExprStmt:
+    Assign(a)
+      Binary('+')
+        Call:
+          Callee:
+            Identifier(f)
+          Args:
+            Literal(1)
+        Call:
+          Callee:
+            Identifier(g)
+          Args:
+            Literal(2)
 )");
 }
 
 TEST(ParserExtraTest, NestedCallsExpression) {
   expectAST("x = f(g(1), h(2)) * k();",
 R"(Program:
-  Assign(x)
-    Binary('*')
-      Call:
-        Callee:
-          Identifier(f)
-        Args:
-          Call:
-            Callee:
-              Identifier(g)
-            Args:
-              Literal(1)
-          Call:
-            Callee:
-              Identifier(h)
-            Args:
-              Literal(2)
-      Call:
-        Callee:
-          Identifier(k)
-        Args:
+  ExprStmt:
+    Assign(x)
+      Binary('*')
+        Call:
+          Callee:
+            Identifier(f)
+          Args:
+            Call:
+              Callee:
+                Identifier(g)
+              Args:
+                Literal(1)
+            Call:
+              Callee:
+                Identifier(h)
+              Args:
+                Literal(2)
+        Call:
+          Callee:
+            Identifier(k)
+          Args:
 )");
 }
 
@@ -788,10 +819,12 @@ TEST(ParserExtraTest, FunctionMultipleStatements) {
 R"(Program:
   FuncDecl(int f())
     Block:
-      Assign(a)
-        Literal(1)
-      Assign(b)
-        Literal(2)
+      ExprStmt:
+        Assign(a)
+          Literal(1)
+      ExprStmt:
+        Assign(b)
+          Literal(2)
 )");
 }
 
@@ -800,8 +833,9 @@ TEST(ParserExtraTest, FunctionParamsWithoutTypes) {
 R"(Program:
   FuncDecl(int f(a, b))
     Block:
-      Assign(a)
-        Identifier(b)
+      ExprStmt:
+        Assign(a)
+          Identifier(b)
 )");
 }
 

@@ -28,7 +28,7 @@ namespace minilang::ast {
         void visit(LambdaExpr& e) override;
         void visit(ExprStmt& s) override;
         void visit(VarDeclStmt& s) override;
-        void visit(AssignStmt& s) override;
+        void visit(AssignExpr& s) override;
         void visit(ReturnStmt& s) override;
         void visit(BlockStmt& s) override;
         void visit(IfStmt& s) override;

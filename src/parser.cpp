@@ -17,21 +17,11 @@ Parser::Parser(Lexer &lex) : lex_(lex) {
 }
 
 Token Parser::next() {
-    if (lookahead_) {
-        cur_ = *lookahead_;
-        lookahead_.reset();
-    } else {
-        cur_ = lex_.nextToken();
-    }
+    cur_ = lex_.nextToken();
     return cur_;
 }
 
-Token Parser::peekNext() {
-    if (!lookahead_) {
-        lookahead_ = lex_.nextToken();
-    }
-    return *lookahead_;
-}
+
 
 bool Parser::match(TokenKind k, const std::string *lexeme) {
     if (cur_.getKind() != k) return false;
@@ -76,22 +66,16 @@ std::unique_ptr<Program> Parser::parseProgram() {
 std::unique_ptr<Stmt> Parser::parseStatement() {
     static const std::string semicolon = ";";
 
-    if (cur_.getKind() == TokenKind::Keyword && cur_.lexeme == "fun") return parseFuncDecl();
-    if (cur_.getKind() == TokenKind::Keyword && cur_.lexeme == "if") return parseIf();
-    if (cur_.getKind() == TokenKind::Keyword && cur_.lexeme == "for") return parseFor();
-    if (cur_.getKind() == TokenKind::Keyword && cur_.lexeme == "return") return parseReturn();
-    if (cur_.getKind() == TokenKind::Keyword && cur_.lexeme == "const") return parseVarDecl();
-
-    if (cur_.getKind() == TokenKind::Identifier) {
-        Token nextTok = peekNext();
-        if (nextTok.getKind() == TokenKind::OpAssign) {
-            return parseAssign();
-        }
+    if (cur_.getKind() == TokenKind::Keyword) {
+        if (cur_.lexeme == "fun")    return parseFuncDecl();
+        if (cur_.lexeme == "if")     return parseIf();
+        if (cur_.lexeme == "for")    return parseFor();
+        if (cur_.lexeme == "return") return parseReturn();
+        if (cur_.lexeme == "const")  return parseVarDecl();
     }
 
-    if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == "{") {
+    if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == "{")
         return parseBlock();
-    }
 
     if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == ";") {
         next();
@@ -99,14 +83,17 @@ std::unique_ptr<Stmt> Parser::parseStatement() {
     }
 
 
-    auto expr = parseFuncOpExpr();
-    if (!expr) return nullptr;
-    if (!expect(TokenKind::Punctuator, &semicolon)) return nullptr;
-    auto s = std::make_unique<ExprStmt>();
-    s->expr = std::move(expr);
-    s->pos = s->expr->pos;
-    return s;
+        auto expr = parseAssign();
+        if (!expr) return nullptr;
 
+
+
+    if (!expect(TokenKind::Punctuator, &semicolon)) return nullptr;
+
+    auto st = std::make_unique<ExprStmt>();
+    st->expr = std::move(expr);
+    st->pos = st->expr->pos;
+    return st;
 }
 
 // var_decl = [var_mod] , identifier , "=" , func_op_expr , ";" ;
@@ -123,7 +110,7 @@ std::unique_ptr<Stmt> Parser::parseVarDecl() {
         errorAt(id, "Expected identifier in variable declaration");
         return nullptr;
     }
-    next(); // consume identifier
+    next();
     std::string name = id.lexeme;
 
     if (!expect(TokenKind::OpAssign, nullptr)) return nullptr;
@@ -141,28 +128,30 @@ std::unique_ptr<Stmt> Parser::parseVarDecl() {
 }
 
 // assign = identifier , "=" , func_op_expr , ";" ;
-std::unique_ptr<Stmt> Parser::parseAssign() {
-    static const std::string semicolon = ";";
+std::unique_ptr<Expr> Parser::parseAssign() {
+    auto left = parseFuncOpExpr();
+    if (!left) return nullptr;
 
-    Token id = cur_;
-    if (id.getKind() != TokenKind::Identifier) {
-        errorAt(id, "Expected identifier on left-hand side of assignment");
-        return nullptr;
+    if (cur_.getKind() == TokenKind::OpAssign) {
+        Token t = cur_;
+        next();
+
+        auto rhs = parseAssign();
+        if (!rhs) return nullptr;
+
+        auto id = dynamic_cast<IdentifierExpr*>(left.get());
+        if (!id) {
+            errorAt(t, "Left-hand side of assignment must be identifier");
+            return nullptr;
+        }
+
+        auto ae = std::make_unique<AssignExpr>();
+        ae->target = id->name;
+        ae->value = std::move(rhs);
+        ae->pos = t.pos;
+        return ae;
     }
-    next();
-    std::string name = id.lexeme;
-
-    if (!expect(TokenKind::OpAssign, nullptr)) return nullptr;
-
-    auto rhs = parseFuncOpExpr();
-    if (!rhs) return nullptr;
-    if (!expect(TokenKind::Punctuator, &semicolon)) return nullptr;
-
-    auto a = std::make_unique<AssignStmt>();
-    a->target = name;
-    a->value = std::move(rhs);
-    a->pos = id.pos;
-    return a;
+    return left;
 }
 
 // func_decl = "fun" , type_spec ,  identifier  , "(" , [ param_list ] , ")"  , body ;
@@ -325,70 +314,50 @@ std::unique_ptr<Stmt> Parser::parseFor() {
     }
     next();
 
-    static const std::string leftParen = "(";
-    static const std::string rightParen = ")";
-    static const std::string semicolon = ";";
+    static const std::string lpar = "(";
+    static const std::string rpar = ")";
+    static const std::string semi = ";";
 
-    if (!expect(TokenKind::Punctuator, &leftParen)) return nullptr;
+    if (!expect(TokenKind::Punctuator, &lpar)) return nullptr;
 
-    std::unique_ptr<Stmt> init = nullptr;
-    if (!(cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == semicolon)) {
+    std::unique_ptr<Stmt> initDecl = nullptr;
+    std::unique_ptr<Expr> initExpr = nullptr;
+
+
+    if (!(cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == semi)) {
         if (cur_.getKind() == TokenKind::Keyword && cur_.lexeme == "const") {
-            init = parseVarDecl();
-            if (!init) return nullptr;
-        } else if (cur_.getKind() == TokenKind::Identifier) {
-            Token idtok = cur_;
-            next();
-            if (!expect(TokenKind::OpAssign, nullptr)) return nullptr;
-            auto rhs = parseFuncOpExpr();
-            if (!rhs) return nullptr;
-            auto as = std::make_unique<AssignStmt>();
-            as->target = idtok.lexeme;
-            as->value = std::move(rhs);
-            as->pos = idtok.pos;
-            init = std::move(as);
+            initDecl = parseVarDecl();
+            if (!initDecl) return nullptr;
         } else {
-            errorAt(cur_, "Invalid for-loop init");
-            return nullptr;
+            initExpr = parseAssign();
+            if (!initExpr) return nullptr;
+            if (!expect(TokenKind::Punctuator, &semi)) return nullptr;
         }
+    } else {
+        next();
     }
 
-    if (!init) return nullptr;
+    std::unique_ptr<Expr> cond = nullptr;
+    if (!(cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == semi)) {
+        cond = parseFuncOpExpr();
+        if (!cond) return nullptr;
+    }
+    if (!expect(TokenKind::Punctuator, &semi)) return nullptr;
 
-    if (!expect(TokenKind::Punctuator, &semicolon)) return nullptr;
-
-    auto cond = parseFuncOpExpr();
-    if (!cond) return nullptr;
-
-    if (!expect(TokenKind::Punctuator, &semicolon)) return nullptr;
-
-    std::unique_ptr<Stmt> post = nullptr;
-
-    if (!(cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == rightParen)) {
-        if (cur_.getKind() == TokenKind::Identifier) {
-            Token idtok = cur_;
-            next();
-            if (!expect(TokenKind::OpAssign, nullptr)) return nullptr;
-            auto rhs = parseFuncOpExpr();
-            if (!rhs) return nullptr;
-            auto as = std::make_unique<AssignStmt>();
-            as->target = idtok.lexeme;
-            as->value = std::move(rhs);
-            as->pos = idtok.pos;
-            post = std::move(as);
-        } else {
-            errorAt(cur_, "Invalid for-loop post");
-            return nullptr;
-        }
+    std::unique_ptr<Expr> post = nullptr;
+    if (!(cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == rpar)) {
+        post = parseAssign();
+        if (!post) return nullptr;
     }
 
-    if (!expect(TokenKind::Punctuator, &rightParen)) return nullptr;
+    if (!expect(TokenKind::Punctuator, &rpar)) return nullptr;
 
     auto body = parseBlock();
     if (!body) return nullptr;
 
     auto f = std::make_unique<ForStmt>();
-    f->init = std::move(init);
+    f->initDecl = std::move(initDecl);
+    f->initExpr = std::move(initExpr);
     f->cond = std::move(cond);
     f->post = std::move(post);
     f->body = std::move(body);

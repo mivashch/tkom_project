@@ -101,7 +101,7 @@ void AstPrinter::visit(VarDeclStmt& s) {
     }
 }
 
-void AstPrinter::visit(AssignStmt& s) {
+void AstPrinter::visit(AssignExpr& s) {
     pad();
     os << "Assign(" << s.target << ")\n";
     indent++;
@@ -160,7 +160,8 @@ void AstPrinter::visit(ForStmt& s) {
     indent++;
     pad(); os << "Init:\n";
     indent++;
-    if (s.init) s.init->accept(*this);
+    if (s.initDecl) s.initDecl->accept(*this);
+    if (s.initExpr) s.initExpr->accept(*this);
     indent--;
 
     pad(); os << "Cond:\n";

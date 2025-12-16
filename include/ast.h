@@ -56,6 +56,12 @@ struct LambdaExpr : Expr {
     void accept(ASTVisitor &v) override;
 };
 
+struct AssignExpr : Expr {
+    std::string target;
+    std::unique_ptr<Expr> value;
+    void accept(ASTVisitor &v) override;
+};
+
 struct Stmt : Node {};
 
 struct ExprStmt : Stmt {
@@ -68,12 +74,6 @@ struct VarDeclStmt : Stmt {
     std::optional<std::string> typeName;
     std::string name;
     std::unique_ptr<Expr> init;
-    void accept(ASTVisitor &v) override;
-};
-
-struct AssignStmt : Stmt {
-    std::string target;
-    std::unique_ptr<Expr> value;
     void accept(ASTVisitor &v) override;
 };
 
@@ -94,14 +94,14 @@ struct IfStmt : Stmt {
     void accept(ASTVisitor &v) override;
 };
 
-struct ForStmt : Stmt {
-    // for( [assign] ; cond ; [assign] ) { body }
-    std::unique_ptr<Stmt> init;
-    std::unique_ptr<Expr> cond;
-    std::unique_ptr<Stmt> post;
-    std::unique_ptr<BlockStmt> body;
-    void accept(ASTVisitor &v) override;
-};
+    struct ForStmt : Stmt {
+        std::unique_ptr<Stmt> initDecl;
+        std::unique_ptr<Expr> initExpr;
+        std::unique_ptr<Expr> cond;
+        std::unique_ptr<Expr> post;
+        std::unique_ptr<BlockStmt> body;
+        void accept(ASTVisitor &v) override;
+    };
 
 struct FuncDeclStmt : Stmt {
     std::optional<std::string> returnType;
@@ -127,7 +127,7 @@ struct ASTVisitor {
 
     virtual void visit(ExprStmt&) = 0;
     virtual void visit(VarDeclStmt&) = 0;
-    virtual void visit(AssignStmt&) = 0;
+    virtual void visit(AssignExpr&) = 0;
     virtual void visit(ReturnStmt&) = 0;
     virtual void visit(BlockStmt&) = 0;
     virtual void visit(IfStmt&) = 0;

@@ -23,7 +23,6 @@ private:
     std::optional<std::string> lastError_;
 
     Token cur_;
-    std::optional<Token> lookahead_;
 
     Token peekNext();
     Token next();
@@ -39,7 +38,7 @@ private:
     std::unique_ptr<Stmt> parseVarDecl();
 
     // assign = identifier "=" func_op_expr ";"
-    std::unique_ptr<Stmt> parseAssign();
+    std::unique_ptr<Expr> parseAssign();
 
     // func_decl = "fun" , type_spec ,  identifier  , "(" , [ param_list ] , ")"  , body ;
     std::unique_ptr<Stmt> parseFuncDecl();
