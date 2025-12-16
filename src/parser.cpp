@@ -25,7 +25,6 @@ Token Parser::next() {
 }
 
 
-
 bool Parser::match(TokenKind k, const std::string *lexeme) {
     if (cur_.getKind() != k) return false;
     if (lexeme && cur_.lexeme != *lexeme) return false;
@@ -51,7 +50,7 @@ void Parser::errorAt(const Token &t, const std::string &msg) {
 }
 
 std::unique_ptr<Program> Parser::parseProgram() {
-    std::vector<std::unique_ptr<Stmt>> statements;
+    std::vector<std::unique_ptr<Stmt> > statements;
     while (auto s = parseStatement()) {
         statements.push_back(std::move(s));
     }
@@ -62,18 +61,18 @@ std::unique_ptr<Program> Parser::parseProgram() {
 // statement = var_decl | assign | func_decl | expr_stmt | if_stmt | for_stmt | ";"
 std::unique_ptr<Stmt> Parser::parseStatement() {
     static const std::string semicolon = ";";
-    if ( cur_.getKind() == TokenKind::EndOfFile) return nullptr;
+    if (cur_.getKind() == TokenKind::EndOfFile) return nullptr;
 
     if (cur_.getKind() == TokenKind::Keyword) {
-        if (cur_.lexeme == "fun")    return parseFuncDecl();
-        if (cur_.lexeme == "if")     return parseIf();
-        if (cur_.lexeme == "for")    return parseFor();
-        if (cur_.lexeme == "return") return parseReturn();
-        if (cur_.lexeme == "const")  return parseVarDecl();
+        if (auto s = parseFuncDecl()) return s;
+        if (auto s = parseIf()) return s;
+        if (auto s = parseFor()) return s;
+        if (auto s = parseReturn()) return s;
+        if (auto s = parseVarDecl()) return s;
     }
 
-    if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == "{")
-        return parseBlock();
+    if (auto s = parseBlock()) return s;
+
 
     if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == ";") {
         next();
@@ -81,9 +80,8 @@ std::unique_ptr<Stmt> Parser::parseStatement() {
     }
 
 
-        auto expr = parseAssign();
-        if (!expr) return nullptr;
-
+    auto expr = parseAssign();
+    if (!expr) return nullptr;
 
 
     if (!expect(TokenKind::Punctuator, &semicolon)) return nullptr;
@@ -96,6 +94,7 @@ std::unique_ptr<Stmt> Parser::parseStatement() {
 
 // var_decl = [var_mod] , identifier , "=" , func_op_expr , ";" ;
 std::unique_ptr<Stmt> Parser::parseVarDecl() {
+    if (cur_.lexeme != "const") return nullptr;
     static const std::string semicolon = ";";
 
     bool isConst = false;
@@ -137,7 +136,7 @@ std::unique_ptr<Expr> Parser::parseAssign() {
         auto rhs = parseAssign();
         if (!rhs) return nullptr;
 
-        auto id = dynamic_cast<IdentifierExpr*>(left.get());
+        auto id = dynamic_cast<IdentifierExpr *>(left.get());
         if (!id) {
             errorAt(t, "Left-hand side of assignment must be identifier");
             return nullptr;
@@ -156,7 +155,7 @@ std::unique_ptr<Expr> Parser::parseAssign() {
 std::unique_ptr<Stmt> Parser::parseFuncDecl() {
     static const std::string leftParen = "(";
     static const std::string rightParen = ")";
-
+    if (cur_.lexeme != "fun") return nullptr;
     Token kw = cur_;
     if (!(kw.getKind() == TokenKind::Keyword && kw.lexeme == "fun")) {
         errorAt(kw, "Expected 'fun' to start function declaration");
@@ -166,8 +165,8 @@ std::unique_ptr<Stmt> Parser::parseFuncDecl() {
 
     std::optional<std::string> retType;
     if (cur_.getKind() == TokenKind::Keyword &&
-        (cur_.lexeme == "int" || cur_.lexeme == "float" || cur_.lexeme == "str" || cur_.lexeme == "bool" || cur_.lexeme == "fun"))
-    {
+        (cur_.lexeme == "int" || cur_.lexeme == "float" || cur_.lexeme == "str" || cur_.lexeme == "bool" || cur_.lexeme
+         == "fun")) {
         retType = cur_.lexeme;
         next();
     } else if (cur_.getKind() == TokenKind::Identifier) {
@@ -198,8 +197,8 @@ std::unique_ptr<Stmt> Parser::parseFuncDecl() {
     return f;
 }
 
-std::vector<std::pair<std::string,std::optional<std::string>>> Parser::parseParamList() {
-    std::vector<std::pair<std::string,std::optional<std::string>>> out;
+std::vector<std::pair<std::string, std::optional<std::string> > > Parser::parseParamList() {
+    std::vector<std::pair<std::string, std::optional<std::string> > > out;
     if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == ")") return out;
 
     while (true) {
@@ -208,7 +207,10 @@ std::vector<std::pair<std::string,std::optional<std::string>>> Parser::parsePara
             isConst = true;
             next();
         }
-        if (cur_.getKind() != TokenKind::Identifier) { errorAt(cur_, "Expected parameter name"); return {}; }
+        if (cur_.getKind() != TokenKind::Identifier) {
+            errorAt(cur_, "Expected parameter name");
+            return {};
+        }
         std::string name = cur_.lexeme;
         next();
 
@@ -218,18 +220,25 @@ std::vector<std::pair<std::string,std::optional<std::string>>> Parser::parsePara
             if (cur_.getKind() == TokenKind::Keyword || cur_.getKind() == TokenKind::Identifier) {
                 typ = cur_.lexeme;
                 next();
-            } else { errorAt(cur_, "Expected type name after ':'"); return {}; }
+            } else {
+                errorAt(cur_, "Expected type name after ':'");
+                return {};
+            }
         }
 
         out.emplace_back(name, typ);
 
-        if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == ",") { next(); continue; }
+        if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == ",") {
+            next();
+            continue;
+        }
         break;
     }
     return out;
 }
 
 std::unique_ptr<BlockStmt> Parser::parseBlock() {
+    if (cur_.getKind() != TokenKind::Punctuator || cur_.lexeme != "{") return nullptr;
     static const std::string leftBrace = "{";
     static const std::string rightBrace = "}";
 
@@ -240,7 +249,7 @@ std::unique_ptr<BlockStmt> Parser::parseBlock() {
             next();
             break;
         }
-        if (cur_.getKind() == TokenKind::EndOfFile ) {
+        if (cur_.getKind() == TokenKind::EndOfFile) {
             errorAt(cur_, "Expected '}'");
             break;
         };
@@ -252,6 +261,7 @@ std::unique_ptr<BlockStmt> Parser::parseBlock() {
 
 // return_stmt = "return" , func_op_expr , ";"
 std::unique_ptr<Stmt> Parser::parseReturn() {
+    if (cur_.lexeme != "return") return nullptr;
     static const std::string semicolon = ";";
 
     Token kw = cur_;
@@ -271,6 +281,7 @@ std::unique_ptr<Stmt> Parser::parseReturn() {
 
 // if_stmt = "if" , "(" , func_op_expr , ")" , "{" , { statement } , "}" , [ "else" , "{" , { statement } , "}" ] ;
 std::unique_ptr<Stmt> Parser::parseIf() {
+    if (cur_.lexeme != "if") return nullptr;
     Token kw = cur_;
     if (!(kw.getKind() == TokenKind::Keyword && kw.lexeme == "if")) {
         errorAt(kw, "Expected 'if'");
@@ -305,6 +316,7 @@ std::unique_ptr<Stmt> Parser::parseIf() {
 
 // for_stmt = "for" , "(" , [ assign ] , ";" , func_op_expr , ";" , [ assign ] , ")" , "{" , { statement } , "}"
 std::unique_ptr<Stmt> Parser::parseFor() {
+    if (cur_.lexeme != "for") return nullptr;
     Token kw = cur_;
     if (!(kw.getKind() == TokenKind::Keyword && kw.lexeme == "for")) {
         errorAt(kw, "Expected 'for'");
@@ -373,7 +385,10 @@ std::unique_ptr<Expr> Parser::parseFuncOpExpr() {
             Token t = cur_;
             next();
             auto right = parseLogicExpr();
-            if (!right) { errorAt(t, "Expected expression after function-operator"); return nullptr; }
+            if (!right) {
+                errorAt(t, "Expected expression after function-operator");
+                return nullptr;
+            }
             auto be = std::make_unique<BinaryExpr>();
             be->op = t.lexeme;
             be->lhs = std::move(left);
@@ -394,7 +409,10 @@ std::unique_ptr<Expr> Parser::parseLogicExpr() {
             Token t = cur_;
             next();
             auto right = parseCompExpr();
-            if (!right) { errorAt(t, "Expected expression after logical operator"); return nullptr; }
+            if (!right) {
+                errorAt(t, "Expected expression after logical operator");
+                return nullptr;
+            }
             auto be = std::make_unique<BinaryExpr>();
             be->op = t.lexeme;
             be->lhs = std::move(left);
@@ -415,12 +433,14 @@ std::unique_ptr<Expr> Parser::parseCompExpr() {
         cur_.getKind() == TokenKind::OpLess ||
         cur_.getKind() == TokenKind::OpLessEq ||
         cur_.getKind() == TokenKind::OpGreater ||
-        cur_.getKind() == TokenKind::OpGreaterEq)
-    {
+        cur_.getKind() == TokenKind::OpGreaterEq) {
         Token t = cur_;
         next();
         auto right = parseAddExpr();
-        if (!right) { errorAt(t, "Expected right-hand side for comparison"); return nullptr; }
+        if (!right) {
+            errorAt(t, "Expected right-hand side for comparison");
+            return nullptr;
+        }
         auto be = std::make_unique<BinaryExpr>();
         be->op = t.lexeme;
         be->lhs = std::move(left);
@@ -440,7 +460,10 @@ std::unique_ptr<Expr> Parser::parseAddExpr() {
             Token t = cur_;
             next();
             auto right = parseMulExpr();
-            if (!right) { errorAt(t, "Expected operand after + or -"); return nullptr; }
+            if (!right) {
+                errorAt(t, "Expected operand after + or -");
+                return nullptr;
+            }
             auto be = std::make_unique<BinaryExpr>();
             be->op = t.lexeme;
             be->lhs = std::move(left);
@@ -457,11 +480,15 @@ std::unique_ptr<Expr> Parser::parseMulExpr() {
     auto left = parseUnaryExpr();
     if (!left) return nullptr;
     while (true) {
-        if (cur_.getKind() == TokenKind::OpMul || cur_.getKind() == TokenKind::OpDiv || cur_.getKind() == TokenKind::OpMod) {
+        if (cur_.getKind() == TokenKind::OpMul || cur_.getKind() == TokenKind::OpDiv || cur_.getKind() ==
+            TokenKind::OpMod) {
             Token t = cur_;
             next();
             auto right = parseUnaryExpr();
-            if (!right) { errorAt(t, "Expected operand after * / %"); return nullptr; }
+            if (!right) {
+                errorAt(t, "Expected operand after * / %");
+                return nullptr;
+            }
             auto be = std::make_unique<BinaryExpr>();
             be->op = t.lexeme;
             be->lhs = std::move(left);
@@ -479,7 +506,10 @@ std::unique_ptr<Expr> Parser::parseUnaryExpr() {
         Token t = cur_;
         next();
         auto rhs = parseUnaryExpr();
-        if (!rhs) { errorAt(t, "Unary operator requires operand"); return nullptr; }
+        if (!rhs) {
+            errorAt(t, "Unary operator requires operand");
+            return nullptr;
+        }
         auto ue = std::make_unique<UnaryExpr>();
         ue->op = t.lexeme;
         ue->rhs = std::move(rhs);
@@ -509,13 +539,16 @@ std::unique_ptr<Expr> Parser::parseCallOrPrimary() {
 }
 
 // arg_list = func_op_expr , { "," , func_op_expr } ;
-std::vector<std::unique_ptr<Expr>> Parser::parseArgList() {
-    std::vector<std::unique_ptr<Expr>> out;
+std::vector<std::unique_ptr<Expr> > Parser::parseArgList() {
+    std::vector<std::unique_ptr<Expr> > out;
     static const std::string rightParen = ")";
     if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == rightParen) return out;
     while (true) {
         auto e = parseFuncOpExpr();
-        if (!e) { errorAt(cur_, "Expected argument expression"); return {}; }
+        if (!e) {
+            errorAt(cur_, "Expected argument expression");
+            return {};
+        }
         out.push_back(std::move(e));
         if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == ",") {
             next();
