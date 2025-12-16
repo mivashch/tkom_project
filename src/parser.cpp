@@ -5,6 +5,9 @@
 
 #include "ast.h"
 #include "parser.h"
+
+#include <iostream>
+
 #include "lexer.h"
 #include "token.h"
 
@@ -43,28 +46,23 @@ bool Parser::expect(TokenKind k, const std::string *lexeme) {
 }
 
 void Parser::errorAt(const Token &t, const std::string &msg) {
-    std::ostringstream ss;
-    ss << "ParseError [" << t.pos.line << ":" << t.pos.column << "]: " << msg << " (got '" << t.lexeme << "')";
-    lastError_ = ss.str();
+    std::cerr << "ParseError [" << t.pos.line << ":" << t.pos.column << "]: " << msg << " (got '" << t.lexeme << "')";
+    std::exit(EXIT_FAILURE);
 }
 
 std::unique_ptr<Program> Parser::parseProgram() {
-    auto prog = std::make_unique<Program>();
-    prog->pos = cur_.pos;
-    while (true) {
-        if (cur_.getKind() == TokenKind::EndOfFile) break;
-        auto s = parseStatement();
-        if (lastError_) {
-            return nullptr;
-        }
-        prog->stmts.push_back(std::move(s));
+    std::vector<std::unique_ptr<Stmt>> statements;
+    while (auto s = parseStatement()) {
+        statements.push_back(std::move(s));
     }
-    return prog;
+    expect(TokenKind::EndOfFile);
+    return std::make_unique<Program>(std::move(statements));
 }
 
 // statement = var_decl | assign | func_decl | expr_stmt | if_stmt | for_stmt | ";"
 std::unique_ptr<Stmt> Parser::parseStatement() {
     static const std::string semicolon = ";";
+    if ( cur_.getKind() == TokenKind::EndOfFile) return nullptr;
 
     if (cur_.getKind() == TokenKind::Keyword) {
         if (cur_.lexeme == "fun")    return parseFuncDecl();

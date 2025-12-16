@@ -112,6 +112,7 @@ struct FuncDeclStmt : Stmt {
 };
 
 struct Program : Node {
+    Program(std::vector<std::unique_ptr<Stmt>> statements);
     std::vector<std::unique_ptr<Stmt>> stmts;
     void accept(ASTVisitor &v) override;
 };

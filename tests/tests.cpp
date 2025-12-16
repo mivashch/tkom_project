@@ -274,18 +274,21 @@ R"(Program:
 }
 
 TEST(ParserTest, ErrorMissingSemicolon) {
-    std::string out = parseAndDump("x = 1");
-    EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+      parseAndDump("x = 1");
+  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserTest, ErrorBadExpr) {
-    std::string out = parseAndDump("x = * 10;");
-    EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+    parseAndDump("x = * 10;");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserTest, ErrorBadFunction) {
-    std::string out = parseAndDump("fun int f( { }");
-    EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+  parseAndDump("fun int f( { }");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserTest, ComparisonOperators) {
@@ -458,18 +461,21 @@ R"(Program:
 }
 
 TEST(ParserTest, ErrorIfMissingCond) {
-  std::string out = parseAndDump("if () { }");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("if () { }");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserTest, ErrorUnclosedBlock) {
-  std::string out = parseAndDump("{ x = 1;");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("{ x = 1;");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserTest, ErrorTrailingCommaCall) {
-  std::string out = parseAndDump("f(1,);");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("f(1,);");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserTest, EmptyProgram) {
@@ -479,13 +485,15 @@ R"(Program:
 }
 
 TEST(ParserTest, ErrorAssignInCondition) {
-  std::string out = parseAndDump("if (a = b) { }");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("if (a = b) { }");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserTest, ErrorMissingCommaArgs) {
-  std::string out = parseAndDump("f(1 2);");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("f(1 2);");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserEdgeTest, EmptyProgram) {
@@ -560,43 +568,46 @@ R"(Program:
 }
 
 TEST(ParserNegativeTest, ErrorUnclosedParen) {
-  std::string out = parseAndDump("(a + b;");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("(a + b;");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserNegativeTest, ErrorUnclosedBrace) {
-  std::string out = parseAndDump("if (x) { y = 1;");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("if (x) { y = 1;");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserNegativeTest, ErrorDoubleOperator) {
-  std::string out = parseAndDump("a + * b;");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("a + * b;");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserNegativeTest, ErrorAssignMissingRHS) {
-  std::string out = parseAndDump("x = ;");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("x = ;");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
-TEST(ParserNegativeTest, ErrorIfNoCondition) {
-  std::string out = parseAndDump("if () { }");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
-}
 
 TEST(ParserNegativeTest, ErrorForMissingSemicolon) {
-  std::string out = parseAndDump("for (i=0 i<10; i=i+1){}");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("for (i=0 i<10; i=i+1){}");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserNegativeTest, ErrorTrailingCommaCall) {
-  std::string out = parseAndDump("f(1,2,);");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("f(1,2,);");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserNegativeTest, ErrorBadParamType) {
-  std::string out = parseAndDump("fun int f(a:){ }");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+  EXPECT_EXIT({
+parseAndDump("fun int f(a:){ }");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserExtraTest, DoubleUnaryMinus) {
@@ -841,13 +852,16 @@ R"(Program:
 
 
 TEST(ParserExtraTest, ErrorDoubleCommaParams) {
-  std::string out = parseAndDump("fun int f(a,,b){}");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+EXPECT_EXIT({
+parseAndDump("fun int f(a,,b){}");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 TEST(ParserExtraTest, ErrorUnclosedCallParen) {
-  std::string out = parseAndDump("f(1,2;");
-  EXPECT_TRUE(out.rfind("ERROR:", 0) == 0);
+
+EXPECT_EXIT({
+parseAndDump("f(1,2;");
+}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
 }
 
 

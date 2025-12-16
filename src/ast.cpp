@@ -1,6 +1,12 @@
 #include "ast.h"
 
 namespace minilang::ast {
+    Program::Program(std::vector<std::unique_ptr<Stmt> > statements) {
+        for (auto it = statements.begin(); it != statements.end(); ++it) {
+            stmts.push_back(std::move(*it));
+        }
+    }
+
 
     void LiteralExpr::accept(ASTVisitor& v) { v.visit(*this); }
     void IdentifierExpr::accept(ASTVisitor& v) { v.visit(*this); }
