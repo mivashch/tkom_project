@@ -103,11 +103,7 @@ std::unique_ptr<Stmt> Parser::parseVarDecl() {
         next();
     }
     Token id = cur_;
-    if (id.getKind() != TokenKind::Identifier) {
-        errorAt(id, "Expected identifier in variable declaration");
-        return nullptr;
-    }
-    next();
+    if (!expect(TokenKind::Identifier, &id.lexeme)) return nullptr;
     std::string name = id.lexeme;
 
     if (!expect(TokenKind::OpAssign, nullptr)) return nullptr;
@@ -157,11 +153,7 @@ std::unique_ptr<Stmt> Parser::parseFuncDecl() {
     static const std::string rightParen = ")";
     if (cur_.lexeme != "fun") return nullptr;
     Token kw = cur_;
-    if (!(kw.getKind() == TokenKind::Keyword && kw.lexeme == "fun")) {
-        errorAt(kw, "Expected 'fun' to start function declaration");
-        return nullptr;
-    }
-    next();
+    if (!expect(TokenKind::Keyword, &kw.lexeme)) return nullptr;
 
     std::optional<std::string> retType;
     if (cur_.getKind() == TokenKind::Keyword &&
@@ -175,11 +167,8 @@ std::unique_ptr<Stmt> Parser::parseFuncDecl() {
     }
 
     Token nameTok = cur_;
-    if (nameTok.getKind() != TokenKind::Identifier) {
-        errorAt(nameTok, "Expected function name");
-        return nullptr;
-    }
-    next();
+    if (!expect(TokenKind::Identifier, &nameTok.lexeme)) return nullptr;
+
     std::string fname = nameTok.lexeme;
 
     if (!expect(TokenKind::Punctuator, &leftParen)) return nullptr;
@@ -207,12 +196,9 @@ std::vector<std::pair<std::string, std::optional<std::string> > > Parser::parseP
             isConst = true;
             next();
         }
-        if (cur_.getKind() != TokenKind::Identifier) {
-            errorAt(cur_, "Expected parameter name");
-            return {};
-        }
         std::string name = cur_.lexeme;
-        next();
+
+        if (!expect(TokenKind::Identifier)) return {};
 
         std::optional<std::string> typ;
         if (cur_.getKind() == TokenKind::Punctuator && cur_.lexeme == ":") {
@@ -249,9 +235,9 @@ std::unique_ptr<BlockStmt> Parser::parseBlock() {
             next();
             break;
         }
+
         if (cur_.getKind() == TokenKind::EndOfFile) {
-            errorAt(cur_, "Expected '}'");
-            break;
+            expect(TokenKind::Punctuator, &rightBrace);
         };
         auto st = parseStatement();
         blk->stmts.push_back(std::move(st));
@@ -265,11 +251,8 @@ std::unique_ptr<Stmt> Parser::parseReturn() {
     static const std::string semicolon = ";";
 
     Token kw = cur_;
-    if (!(kw.getKind() == TokenKind::Keyword && kw.lexeme == "return")) {
-        errorAt(kw, "Expected 'return'");
-        return nullptr;
-    }
-    next();
+    if (!expect(TokenKind::Keyword, &kw.lexeme)) return nullptr;
+
     auto e = parseFuncOpExpr();
     if (!e) return nullptr;
     if (!expect(TokenKind::Punctuator, &semicolon)) return nullptr;
@@ -283,11 +266,7 @@ std::unique_ptr<Stmt> Parser::parseReturn() {
 std::unique_ptr<Stmt> Parser::parseIf() {
     if (cur_.lexeme != "if") return nullptr;
     Token kw = cur_;
-    if (!(kw.getKind() == TokenKind::Keyword && kw.lexeme == "if")) {
-        errorAt(kw, "Expected 'if'");
-        return nullptr;
-    }
-    next();
+    if (!expect(TokenKind::Keyword, &kw.lexeme)) return nullptr;
 
     static const std::string leftParen = "(";
     static const std::string rightParen = ")";
@@ -318,11 +297,7 @@ std::unique_ptr<Stmt> Parser::parseIf() {
 std::unique_ptr<Stmt> Parser::parseFor() {
     if (cur_.lexeme != "for") return nullptr;
     Token kw = cur_;
-    if (!(kw.getKind() == TokenKind::Keyword && kw.lexeme == "for")) {
-        errorAt(kw, "Expected 'for'");
-        return nullptr;
-    }
-    next();
+    if (!expect(TokenKind::Keyword, &kw.lexeme)) return nullptr;
 
     static const std::string lpar = "(";
     static const std::string rpar = ")";
