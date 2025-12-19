@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
             std::string sample = R"(
 fun int add(a: int, b: float) {
     a = 2;
-    return a + b;
+    return;
 }
 
 result = add(2, 3);

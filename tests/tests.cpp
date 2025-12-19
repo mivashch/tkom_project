@@ -975,13 +975,6 @@ TEST(ParserNegativeExtra, ErrorFuncParamMissingComma) {
 }
 
 
-TEST(ParserNegativeExtra, ErrorReturnMissingExpr) {
-  EXPECT_EXIT({
-    parseAndDump("fun int f(){ return; }");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
-}
-
-
 TEST(ParserNegativeExtra, ErrorUnknownToken) {
   EXPECT_EXIT({
     parseAndDump("@;");

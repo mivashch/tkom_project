@@ -217,14 +217,22 @@ std::unique_ptr<Stmt> Parser::parseReturn() {
     Token t = cur_;
     expect(TokenKind::KwReturn);
 
-    auto e = parseFuncOpExpr();
+    std::unique_ptr<Expr> value = nullptr;
+
+    if (cur_.getKind() != TokenKind::Semicolon) {
+        value = parseFuncOpExpr();
+        if (!value)
+            errorAt(cur_, "Expected expression after 'return'");
+    }
+
     expect(TokenKind::Semicolon);
 
     auto r = std::make_unique<ReturnStmt>();
-    r->value = std::move(e);
+    r->value = std::move(value);
     r->pos = t.getPos();
     return r;
 }
+
 
 std::unique_ptr<BlockStmt> Parser::parseElseBlock() {
     if (match(TokenKind::KwElse))
