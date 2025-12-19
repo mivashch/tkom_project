@@ -63,21 +63,24 @@ std::unique_ptr<Program> Parser::parseProgram() {
 }
 
 std::unique_ptr<Stmt> Parser::parseStatement() {
-    switch (cur_.getKind()) {
-        case TokenKind::KwFun:    return parseFuncDecl();
-        case TokenKind::KwIf:     return parseIf();
-        case TokenKind::KwFor:    return parseFor();
-        case TokenKind::KwReturn: return parseReturn();
-        case TokenKind::KwConst:  return parseVarDecl();
-        case TokenKind::LBrace:   return parseBlock();
-        case TokenKind::Semicolon:
-            next();
-            return std::make_unique<ExprStmt>();
-        default:
-            break;
+    if (cur_.getKind() == TokenKind::EndOfFile)
+        return nullptr;
+
+    if (auto s = parseFuncDecl())  return s;
+    if (auto s = parseIf())        return s;
+    if (auto s = parseFor())       return s;
+    if (auto s = parseReturn())    return s;
+    if (auto s = parseVarDecl())   return s;
+    if (auto s = parseBlock())     return s;
+
+
+    if (match(TokenKind::Semicolon)) {
+        next();
+        return std::make_unique<ExprStmt>();
     }
 
     auto expr = parseAssign();
+
     expect(TokenKind::Semicolon);
 
     auto st = std::make_unique<ExprStmt>();
@@ -86,7 +89,11 @@ std::unique_ptr<Stmt> Parser::parseStatement() {
     return st;
 }
 
+
 std::unique_ptr<Stmt> Parser::parseVarDecl() {
+    if (cur_.getKind() != TokenKind::KwConst) return nullptr;
+
+
     expect(TokenKind::KwConst);
 
     Token id = cur_;
@@ -138,6 +145,7 @@ std::unique_ptr<Expr> Parser::parseAssign() {
 
 
 std::unique_ptr<Stmt> Parser::parseFuncDecl() {
+    if (cur_.getKind() != TokenKind::KwFun) return nullptr;
     expect(TokenKind::KwFun);
 
     std::optional<std::string> retType;
@@ -201,11 +209,13 @@ Parser::parseParamList() {
 
 
 std::unique_ptr<BlockStmt> Parser::parseBlock() {
+    if (cur_.getKind() != TokenKind::LBrace) return nullptr;
+
     expect(TokenKind::LBrace);
 
     auto blk = std::make_unique<BlockStmt>();
 
-    while (cur_.getKind() != TokenKind::RBrace) {
+    while (cur_.getKind() != TokenKind::RBrace && cur_.getKind() != TokenKind::EndOfFile) {
         blk->stmts.push_back(parseStatement());
     }
 
@@ -214,6 +224,8 @@ std::unique_ptr<BlockStmt> Parser::parseBlock() {
 }
 
 std::unique_ptr<Stmt> Parser::parseReturn() {
+    if (cur_.getKind() != TokenKind::KwReturn) return nullptr;
+
     Token t = cur_;
     expect(TokenKind::KwReturn);
 
@@ -243,6 +255,8 @@ std::unique_ptr<BlockStmt> Parser::parseElseBlock() {
 
 
 std::unique_ptr<Stmt> Parser::parseIf() {
+    if (cur_.getKind() != TokenKind::KwIf) return nullptr;
+
     Token t = cur_;
     expect(TokenKind::KwIf);
 
@@ -263,6 +277,8 @@ std::unique_ptr<Stmt> Parser::parseIf() {
 }
 
 std::unique_ptr<Stmt> Parser::parseFor() {
+    if (cur_.getKind() != TokenKind::KwFor) return nullptr;
+
     Token t = cur_;
     expect(TokenKind::KwFor);
 
@@ -292,6 +308,10 @@ std::unique_ptr<Stmt> Parser::parseFor() {
     expect(TokenKind::RParen);
 
     auto body = parseBlock();
+    if (!body) {
+        errorAt(cur_, "Expected body of function");
+
+    }
 
     auto f = std::make_unique<ForStmt>();
     f->initDecl = std::move(initDecl);
