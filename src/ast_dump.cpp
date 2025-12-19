@@ -7,17 +7,23 @@ void AstPrinter::visit(LiteralExpr& e) {
     pad();
     os << "Literal(";
 
-    if (std::holds_alternative<long long>(e.value))
-        os << std::get<long long>(e.value);
-    else if (std::holds_alternative<double>(e.value))
-        os << std::get<double>(e.value);
-    else if (std::holds_alternative<std::string>(e.value))
-        os << "\"" << std::get<std::string>(e.value) << "\"";
-    else if (std::holds_alternative<bool>(e.value))
-        os << (std::get<bool>(e.value) ? "true" : "false");
+    std::visit([&](auto&& v) {
+        using T = std::decay_t<decltype(v)>;
+
+        if constexpr (std::is_same_v<T, long long>) {
+            os << v;
+        } else if constexpr (std::is_same_v<T, double>) {
+            os << v;
+        } else if constexpr (std::is_same_v<T, std::string>) {
+            os << "\"" << v << "\"";
+        } else if constexpr (std::is_same_v<T, bool>) {
+            os << (v ? "true" : "false");
+        }
+    }, e.value);
 
     os << ")\n";
 }
+
 
 void AstPrinter::visit(IdentifierExpr& e) {
     pad();

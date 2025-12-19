@@ -13,6 +13,7 @@ namespace minilang {
 
         Token nextToken();
 
+         TokenKind keywordKind(const std::string& s);
         bool isPunctuator(char c) const ;
         std::optional<Token> handleAmpersand(Position pos);
         std::optional<Token> handleEquals(Position pos);
