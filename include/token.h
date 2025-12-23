@@ -78,84 +78,35 @@ public:
     Position getPos() const { return pos; }
 
 
-    static Token makeInt(long long v, Position p) {
-        return Token(
-            TokenKind::NumberInt,
-            v,
-            std::to_string(v),
-            p
-        );
-    }
+    Token(TokenKind k, std::string lex, Position p)
+        : kind(k), value(std::monostate{}), lexeme(std::move(lex)), pos(p) {}
 
-    static Token makeFloat(double v, Position p) {
-        return Token(
-            TokenKind::NumberFloat,
-            v,
-            std::to_string(v),
-            p
-        );
-    }
+    Token(long long v, Position p)
+        : kind(TokenKind::NumberInt),
+          value(v),
+          lexeme(std::to_string(v)),
+          pos(p) {}
 
-    static Token makeString(std::string v, Position p) {
-        return Token(
-            TokenKind::String,
-            v,
-            "\"" + v + "\"",
-            p
-        );
-    }
+    Token(double v, Position p)
+        : kind(TokenKind::NumberFloat),
+          value(v),
+          lexeme(std::to_string(v)),
+          pos(p) {}
 
-    static Token makeBool(bool v, Position p) {
-        return Token(
-            TokenKind::Bool,
-            v,
-            v ? "true" : "false",
-            p
-        );
-    }
+    Token(std::string v, Position p)
+        : kind(TokenKind::String),
+          value(v),
+          lexeme("\"" + v + "\""),
+          pos(p) {}
 
+    Token(bool v, Position p)
+        : kind(TokenKind::Bool),
+          value(v),
+          lexeme(v ? "true" : "false"),
+          pos(p) {}
 
-    static Token makeIdentifier(std::string name, Position p) {
-        return Token(
-            TokenKind::Identifier,
-            name,
-            name,
-            p
-        );
-    }
-
-
-    static Token makeKeyword(TokenKind kwKind, std::string lex, Position p) {
-        return Token(
-            kwKind,
-            std::monostate{},
-            std::move(lex),
-            p
-        );
-    }
-
-
-    static Token makeSimple(TokenKind kind, std::string lex, Position p) {
-        return Token(
-            kind,
-            std::monostate{},
-            std::move(lex),
-            p
-        );
-    }
-
-    static Token makeOperator(TokenKind kind, std::string lexeme, Position pos) {
-        return Token(kind, std::monostate{}, std::move(lexeme), pos);
-    }
-
-
-    static Token makeEOF(Position p) {
-        return Token(
-            TokenKind::EndOfFile,
-            std::monostate{},
-            "",
-            p
-        );
+    static Token Identifier(std::string name, Position p) {
+        return Token(TokenKind::Identifier, std::move(name), p);
     }
 
 private:

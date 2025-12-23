@@ -3,26 +3,38 @@
 
 namespace minilang::ast {
 
-void AstPrinter::visit(LiteralExpr& e) {
-    pad();
-    os << "Literal(";
+    struct OutputLiteral {
+        std::ostream& os;
 
-    std::visit([&](auto&& v) {
-        using T = std::decay_t<decltype(v)>;
-
-        if constexpr (std::is_same_v<T, long long>) {
-            os << v;
-        } else if constexpr (std::is_same_v<T, double>) {
-            os << v;
-        } else if constexpr (std::is_same_v<T, std::string>) {
+        void operator()(const std::string& v) const {
             os << "\"" << v << "\"";
-        } else if constexpr (std::is_same_v<T, bool>) {
-            os << (v ? "true" : "false");
         }
-    }, e.value);
 
-    os << ")\n";
-}
+        void operator()(bool v) const {
+            os << std::boolalpha << v;
+        }
+
+        void operator()(long long v) const {
+            os << v;
+        }
+
+        void operator()(double v) const {
+            os << v;
+        }
+
+        void operator()(std::monostate) const {
+            os << "<null>";
+        }
+    };
+
+
+    void AstPrinter::visit(LiteralExpr& e) {
+        pad();
+        os << "Literal(";
+        std::visit(OutputLiteral{os}, e.value);
+        os << ")\n";
+    }
+
 
 
 void AstPrinter::visit(IdentifierExpr& e) {

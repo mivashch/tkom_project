@@ -94,14 +94,14 @@ struct IfStmt : Stmt {
     void accept(ASTVisitor &v) override;
 };
 
-    struct ForStmt : Stmt {
-        std::unique_ptr<Stmt> initDecl;
-        std::unique_ptr<Expr> initExpr;
-        std::unique_ptr<Expr> cond;
-        std::unique_ptr<Expr> post;
-        std::unique_ptr<BlockStmt> body;
-        void accept(ASTVisitor &v) override;
-    };
+struct ForStmt : Stmt {
+    std::unique_ptr<Stmt> initDecl;
+    std::unique_ptr<Expr> initExpr;
+    std::unique_ptr<Expr> cond;
+    std::unique_ptr<Expr> post;
+    std::unique_ptr<BlockStmt> body;
+    void accept(ASTVisitor &v) override;
+};
 
 struct FuncDeclStmt : Stmt {
     std::optional<std::string> returnType;

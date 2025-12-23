@@ -12,6 +12,14 @@ namespace minilang {
 
 using namespace ast;
 
+struct ParseError : std::runtime_error {
+    Position pos;
+
+    ParseError(const Position& p, const std::string& msg)
+        : std::runtime_error(msg), pos(p) {}
+};
+
+
 class Parser {
 public:
     explicit Parser(Lexer& lex);
@@ -33,11 +41,14 @@ private:
     bool match(TokenKind kind);
     bool expect(TokenKind kind);
 
+    [[noreturn]]
     void errorAt(const Token& t, const std::string& msg);
 
 
     // statement = var_decl | assign | func_decl | expr_stmt | if_stmt | for_stmt | ";"
     std::unique_ptr<Stmt> parseStatement();
+    std::unique_ptr<Stmt> parseExpression();
+
 
     // var_decl = "const" identifier "=" func_op_expr ";"
     std::unique_ptr<Stmt> parseVarDecl();

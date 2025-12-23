@@ -30,10 +30,66 @@ bool Parser::match(TokenKind k) {
     return true;
 }
 
+inline std::string toString(TokenKind k) {
+    switch (k) {
+        case TokenKind::EndOfFile:   return "EndOfFile";
+        case TokenKind::Identifier:  return "Identifier";
+
+        case TokenKind::NumberInt:   return "NumberInt";
+        case TokenKind::NumberFloat: return "NumberFloat";
+        case TokenKind::String:      return "String";
+        case TokenKind::Bool:        return "Bool";
+
+        case TokenKind::KwFun:       return "fun";
+        case TokenKind::KwReturn:    return "return";
+        case TokenKind::KwIf:        return "if";
+        case TokenKind::KwElse:      return "else";
+        case TokenKind::KwFor:       return "for";
+        case TokenKind::KwConst:     return "const";
+
+        case TokenKind::KwInt:       return "int";
+        case TokenKind::KwFloat:     return "float";
+        case TokenKind::KwStr:       return "str";
+        case TokenKind::KwBool:      return "bool";
+
+        case TokenKind::OpAssign:    return "=";
+        case TokenKind::OpEq:        return "==";
+        case TokenKind::OpNotEq:     return "!=";
+        case TokenKind::OpLess:      return "<";
+        case TokenKind::OpLessEq:    return "<=";
+        case TokenKind::OpGreater:   return ">";
+        case TokenKind::OpGreaterEq: return ">=";
+
+        case TokenKind::OpPlus:      return "+";
+        case TokenKind::OpMinus:     return "-";
+        case TokenKind::OpMul:       return "*";
+        case TokenKind::OpDiv:       return "/";
+        case TokenKind::OpMod:       return "%";
+
+        case TokenKind::OpAnd:        return "&&";
+        case TokenKind::OpOr:         return "||";
+        case TokenKind::OpRefStarRef: return "&*&";
+        case TokenKind::OpArrow:      return "=>";
+        case TokenKind::OpDoubleArrow:return "=>>";
+
+        case TokenKind::LParen:      return "(";
+        case TokenKind::RParen:      return ")";
+        case TokenKind::LBrace:      return "{";
+        case TokenKind::RBrace:      return "}";
+        case TokenKind::Comma:       return ",";
+        case TokenKind::Semicolon:   return ";";
+        case TokenKind::Colon:       return ":";
+
+        case TokenKind::Unknown:     return "Unknown";
+    }
+    return "<invalid TokenKind>";
+}
+
+
 bool Parser::expect(TokenKind k) {
     if (cur_.getKind() != k) {
         std::ostringstream ss;
-        ss << "Expected token kind " << static_cast<int>(k);
+        ss << "Expected token " << toString(k);
         errorAt(cur_, ss.str());
         return false;
     }
@@ -41,43 +97,46 @@ bool Parser::expect(TokenKind k) {
     return true;
 }
 
+[[noreturn]]
 void Parser::errorAt(const Token& t, const std::string& msg) {
-    std::cerr
-        << "ParseError [" << t.getPos().line << ":" << t.getPos().column
-        << "]: " << msg
-        << " (got '" << t.getLexeme() << "')\n";
-    std::exit(EXIT_FAILURE);
+    std::ostringstream ss;
+    ss << "ParseError [" << t.getPos().line << ":" << t.getPos().column
+       << "]: " << msg
+       << " (got '" << t.getLexeme() << "')";
+    throw ParseError(t.getPos(), ss.str());
 }
+
 
 std::unique_ptr<Program> Parser::parseProgram() {
     std::vector<std::unique_ptr<Stmt>> stmts;
 
-    while (cur_.getKind() != TokenKind::EndOfFile) {
-        auto s = parseStatement();
-        if (!s) break;
-        stmts.push_back(std::move(s));
+    while (auto stmt = parseStatement()) {
+        stmts.push_back(std::move(stmt));
     }
 
     expect(TokenKind::EndOfFile);
     return std::make_unique<Program>(std::move(stmts));
 }
 
+
 std::unique_ptr<Stmt> Parser::parseStatement() {
-    if (cur_.getKind() == TokenKind::EndOfFile)
-        return nullptr;
+    if (auto s = parseFuncDecl())   return s;
+    if (auto s = parseIf())         return s;
+    if (auto s = parseFor())        return s;
+    if (auto s = parseReturn())     return s;
+    if (auto s = parseVarDecl())    return s;
+    if (auto s = parseBlock())  return s;
+    if (auto s = parseExpression()) return s;
 
-    if (auto s = parseFuncDecl())  return s;
-    if (auto s = parseIf())        return s;
-    if (auto s = parseFor())       return s;
-    if (auto s = parseReturn())    return s;
-    if (auto s = parseVarDecl())   return s;
-    if (auto s = parseBlock())     return s;
+    return nullptr;
+}
 
-
+std::unique_ptr<Stmt> Parser::parseExpression() {
     if (match(TokenKind::Semicolon)) {
         next();
         return std::make_unique<ExprStmt>();
     }
+    if (match(TokenKind::EndOfFile)) return nullptr;
 
     auto expr = parseAssign();
 
@@ -87,14 +146,13 @@ std::unique_ptr<Stmt> Parser::parseStatement() {
     st->expr = std::move(expr);
     st->pos = st->expr->pos;
     return st;
+
 }
 
 
 std::unique_ptr<Stmt> Parser::parseVarDecl() {
     if (cur_.getKind() != TokenKind::KwConst) return nullptr;
 
-
-    expect(TokenKind::KwConst);
 
     Token id = cur_;
     expect(TokenKind::Identifier);

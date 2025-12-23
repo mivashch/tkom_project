@@ -6,25 +6,36 @@
 #include <stdexcept>
 #include <climits>
 #include <algorithm>
-
+#include <array>
+#include <string_view>
 namespace minilang {
 
 
- TokenKind Lexer::keywordKind(const std::string& s) {
-    if (s == "fun")    return TokenKind::KwFun;
-    if (s == "return") return TokenKind::KwReturn;
-    if (s == "if")     return TokenKind::KwIf;
-    if (s == "else")   return TokenKind::KwElse;
-    if (s == "for")    return TokenKind::KwFor;
-    if (s == "const")  return TokenKind::KwConst;
+    TokenKind Lexer::keywordKind(const std::string& s) {
+        using namespace std::literals;
 
-    if (s == "int")    return TokenKind::KwInt;
-    if (s == "float")  return TokenKind::KwFloat;
-    if (s == "str")    return TokenKind::KwStr;
-    if (s == "bool")   return TokenKind::KwBool;
+        static constexpr std::array<std::pair<std::string_view, TokenKind>, 10> keywords = {{
+            {"fun"sv,    TokenKind::KwFun},
+            {"return"sv, TokenKind::KwReturn},
+            {"if"sv,     TokenKind::KwIf},
+            {"else"sv,   TokenKind::KwElse},
+            {"for"sv,    TokenKind::KwFor},
+            {"const"sv,  TokenKind::KwConst},
+            {"int"sv,    TokenKind::KwInt},
+            {"float"sv,  TokenKind::KwFloat},
+            {"str"sv,    TokenKind::KwStr},
+            {"bool"sv,   TokenKind::KwBool},
+        }};
 
-    return TokenKind::Unknown;
-}
+        for (const auto& [name, kind] : keywords) {
+            if (name == s) {
+                return kind;
+            }
+        }
+
+        return TokenKind::Unknown;
+    }
+
 
 bool Lexer::isPunctuator(char c) const {
 
@@ -51,7 +62,7 @@ Token Lexer::nextToken() {
     Position pos = src_->getPosition();
 
     if (src_->peek() == -1) {
-        return Token::makeOperator(TokenKind::EndOfFile, "", pos);
+        return Token(TokenKind::EndOfFile, "", pos);
     }
 
  if (auto token = readIdentifierOrKeyword()) return *token;
@@ -65,7 +76,7 @@ Token Lexer::nextToken() {
  if (auto token = handlePunctuator(pos)) return *token;
 
  char unexpectedChar = static_cast<char>(src_->get());
- return Token::makeOperator(
+ return Token(
      TokenKind::Unknown,
      std::string(1, unexpectedChar),
      pos
@@ -90,15 +101,15 @@ std::optional<Token> Lexer::readIdentifierOrKeyword() {
         buf.push_back(static_cast<char>(src_->get()));
     }
 
-    if (buf == "true")  return Token::makeBool(true, pos);
-    if (buf == "false") return Token::makeBool(false, pos);
+    if (buf == "true")  return Token(true, pos);
+    if (buf == "false") return Token(false, pos);
 
     TokenKind kw = keywordKind(buf);
     if (kw != TokenKind::Unknown) {
-        return Token::makeOperator(kw, buf, pos);
+        return Token(kw, buf, pos);
     }
 
-    return Token::makeIdentifier(buf, pos);
+    return Token::Identifier(buf, pos);
 }
 
 std::optional<Token> Lexer::readNumber() {
@@ -144,9 +155,9 @@ std::optional<Token> Lexer::readNumber() {
     }
 
     if (isFloat)
-        return Token::makeFloat(floatVal, pos);
+        return Token(floatVal, pos);
     else
-        return Token::makeInt(intVal, pos);
+        return Token(intVal, pos);
 }
 
 
@@ -181,7 +192,7 @@ std::optional<Token> Lexer::readString() {
         }
     }
 
-    return Token::makeString(buf, pos);
+    return Token(buf, pos);
 }
 
 std::optional<Token> Lexer::handleAmpersand(Position pos) {
@@ -192,16 +203,16 @@ std::optional<Token> Lexer::handleAmpersand(Position pos) {
         src_->get();
         if (src_->peek() == '&') {
             src_->get();
-            return Token::makeOperator(TokenKind::OpRefStarRef, "&*&", pos);
+            return Token(TokenKind::OpRefStarRef, "&*&", pos);
         }
     }
 
     if (src_->peek() == '&') {
         src_->get();
-        return Token::makeOperator(TokenKind::OpAnd, "&&", pos);
+        return Token(TokenKind::OpAnd, "&&", pos);
     }
 
-    return Token::makeOperator(TokenKind::Unknown, "&", pos);
+    return Token(TokenKind::Unknown, "&", pos);
 }
 
 std::optional<Token> Lexer::handleEquals(Position pos) {
@@ -210,19 +221,19 @@ std::optional<Token> Lexer::handleEquals(Position pos) {
 
     if (src_->peek() == '=') {
         src_->get();
-        return Token::makeOperator(TokenKind::OpEq, "==", pos);
+        return Token(TokenKind::OpEq, "==", pos);
     }
 
     if (src_->peek() == '>') {
         src_->get();
         if (src_->peek() == '>') {
             src_->get();
-            return Token::makeOperator(TokenKind::OpDoubleArrow, "=>>", pos);
+            return Token(TokenKind::OpDoubleArrow, "=>>", pos);
         }
-        return Token::makeOperator(TokenKind::OpArrow, "=>", pos);
+        return Token(TokenKind::OpArrow, "=>", pos);
     }
 
-    return Token::makeOperator(TokenKind::OpAssign, "=", pos);
+    return Token(TokenKind::OpAssign, "=", pos);
 }
 
 std::optional<Token> Lexer::handlePipe(Position pos) {
@@ -231,10 +242,10 @@ std::optional<Token> Lexer::handlePipe(Position pos) {
 
     if (src_->peek() == '|') {
         src_->get();
-        return Token::makeOperator(TokenKind::OpOr, "||", pos);
+        return Token(TokenKind::OpOr, "||", pos);
     }
 
-    return Token::makeOperator(TokenKind::Unknown, "|", pos);
+    return Token(TokenKind::Unknown, "|", pos);
 }
 
 std::optional<Token> Lexer::handleBangLtGt(Position pos) {
@@ -245,24 +256,24 @@ std::optional<Token> Lexer::handleBangLtGt(Position pos) {
     if (ch == '!') {
         if (src_->peek() == '=') {
             src_->get();
-            return Token::makeOperator(TokenKind::OpNotEq, "!=", pos);
+            return Token(TokenKind::OpNotEq, "!=", pos);
         }
     }
 
     if (ch == '<') {
         if (src_->peek() == '=') {
             src_->get();
-            return Token::makeOperator(TokenKind::OpLessEq, "<=", pos);
+            return Token(TokenKind::OpLessEq, "<=", pos);
         }
-        return Token::makeOperator(TokenKind::OpLess, "<", pos);
+        return Token(TokenKind::OpLess, "<", pos);
     }
 
     if (ch == '>') {
         if (src_->peek() == '=') {
             src_->get();
-            return Token::makeOperator(TokenKind::OpGreaterEq, ">=", pos);
+            return Token(TokenKind::OpGreaterEq, ">=", pos);
         }
-        return Token::makeOperator(TokenKind::OpGreater, ">", pos);
+        return Token(TokenKind::OpGreater, ">", pos);
     }
 
     return std::nullopt;
@@ -276,11 +287,11 @@ std::optional<Token> Lexer::handleArithmeticOp(Position pos) {
     src_->get();
 
     switch (ch) {
-        case '+': return Token::makeOperator(TokenKind::OpPlus, "+", pos);
-        case '-': return Token::makeOperator(TokenKind::OpMinus, "-", pos);
-        case '*': return Token::makeOperator(TokenKind::OpMul, "*", pos);
-        case '/': return Token::makeOperator(TokenKind::OpDiv, "/", pos);
-        case '%': return Token::makeOperator(TokenKind::OpMod, "%", pos);
+        case '+': return Token(TokenKind::OpPlus, "+", pos);
+        case '-': return Token(TokenKind::OpMinus, "-", pos);
+        case '*': return Token(TokenKind::OpMul, "*", pos);
+        case '/': return Token(TokenKind::OpDiv, "/", pos);
+        case '%': return Token(TokenKind::OpMod, "%", pos);
     }
 
     return std::nullopt;
@@ -294,13 +305,13 @@ std::optional<Token> Lexer::handlePunctuator(Position pos) {
     src_->get();
 
     switch (ch) {
-        case '(': return Token::makeOperator(TokenKind::LParen, "(", pos);
-        case ')': return Token::makeOperator(TokenKind::RParen, ")", pos);
-        case '{': return Token::makeOperator(TokenKind::LBrace, "{", pos);
-        case '}': return Token::makeOperator(TokenKind::RBrace, "}", pos);
-        case ',': return Token::makeOperator(TokenKind::Comma, ",", pos);
-        case ';': return Token::makeOperator(TokenKind::Semicolon, ";", pos);
-        case ':': return Token::makeOperator(TokenKind::Colon, ":", pos);
+        case '(': return Token(TokenKind::LParen, "(", pos);
+        case ')': return Token(TokenKind::RParen, ")", pos);
+        case '{': return Token(TokenKind::LBrace, "{", pos);
+        case '}': return Token(TokenKind::RBrace, "}", pos);
+        case ',': return Token(TokenKind::Comma, ",", pos);
+        case ';': return Token(TokenKind::Semicolon, ";", pos);
+        case ':': return Token(TokenKind::Colon, ":", pos);
     }
 
     return std::nullopt;
