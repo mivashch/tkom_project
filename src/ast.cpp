@@ -1,7 +1,7 @@
 #include "ast.h"
 
 namespace minilang::ast {
-    Program::Program(std::vector<std::unique_ptr<Stmt> > statements) {
+    Program::Program(std::vector<std::unique_ptr<Stmt> > statements) : Node() {
         for (auto it = statements.begin(); it != statements.end(); ++it) {
             stmts.push_back(std::move(*it));
         }

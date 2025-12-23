@@ -15,30 +15,7 @@ int main(int argc, char **argv) {
             src = makeFileSource(argv[1]);
         } else {
             std::string sample = R"(
-fun int add(a: int, b: float) {
-    a = 2;
-    return;
-}
-
-result = add(2, 3);
-fun int factorial(n) {
-    if (n <= 1) {
-        return 1;
-    }
-    return n * factorial(n - 1);
-}
-
-f = factorial(5); // wynik: 120
-
-fun fun get_func() {
-    return inc;
-}
-
-fun int inc(x: int) {
-    return x + 1;
-}
-
-get_func()(7);
+const y = 2;
 )";
             src = makeStringSource(sample);
         }

@@ -39,7 +39,7 @@ private:
 
     Token next();
     bool match(TokenKind kind);
-    bool expect(TokenKind kind);
+    bool expect(TokenKind kind, bool error = true);
 
     [[noreturn]]
     void errorAt(const Token& t, const std::string& msg);
@@ -56,6 +56,7 @@ private:
     // assign = identifier "=" func_op_expr
     std::unique_ptr<Expr> parseAssign();
 
+     std::optional<std::string> checkReturnType();
     // func_decl = "fun" type_spec identifier "(" [ param_list ] ")" body
     std::unique_ptr<Stmt> parseFuncDecl();
 

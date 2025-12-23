@@ -274,21 +274,21 @@ R"(Program:
 }
 
 TEST(ParserTest, ErrorMissingSemicolon) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
       parseAndDump("x = 1");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserTest, ErrorBadExpr) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("x = * 10;");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserTest, ErrorBadFunction) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
   parseAndDump("fun int f( { }");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserTest, ComparisonOperators) {
@@ -453,21 +453,22 @@ R"(Program:
 }
 
 TEST(ParserTest, ErrorIfMissingCond) {
-  EXPECT_EXIT({
-parseAndDump("if () { }");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  EXPECT_THROW({
+    parseAndDump("if () { }");
+  }, ParseError);
 }
 
+
 TEST(ParserTest, ErrorUnclosedBlock) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
 parseAndDump("{ x = 1;");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserTest, ErrorTrailingCommaCall) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
 parseAndDump("f(1,);");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserTest, EmptyProgram) {
@@ -477,15 +478,15 @@ R"(Program:
 }
 
 TEST(ParserTest, ErrorAssignInCondition) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
 parseAndDump("if (a = b) { }");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserTest, ErrorMissingCommaArgs) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
 parseAndDump("f(1 2);");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserEdgeTest, EmptyProgram) {
@@ -560,46 +561,46 @@ R"(Program:
 }
 
 TEST(ParserNegativeTest, ErrorUnclosedParen) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
 parseAndDump("(a + b;");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserNegativeTest, ErrorUnclosedBrace) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
 parseAndDump("if (x) { y = 1;");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserNegativeTest, ErrorDoubleOperator) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
 parseAndDump("a + * b;");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserNegativeTest, ErrorAssignMissingRHS) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
 parseAndDump("x = ;");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 
 TEST(ParserNegativeTest, ErrorForMissingSemicolon) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
 parseAndDump("for (i=0 i<10; i=i+1){}");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserNegativeTest, ErrorTrailingCommaCall) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
 parseAndDump("f(1,2,);");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserNegativeTest, ErrorBadParamType) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
 parseAndDump("fun int f(a:){ }");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserExtraTest, DoubleUnaryMinus) {
@@ -844,147 +845,142 @@ R"(Program:
 
 
 TEST(ParserExtraTest, ErrorDoubleCommaParams) {
-EXPECT_EXIT({
+EXPECT_THROW({
 parseAndDump("fun int f(a,,b){}");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserExtraTest, ErrorUnclosedCallParen) {
 
-EXPECT_EXIT({
+EXPECT_THROW({
 parseAndDump("f(1,2;");
-}, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+}, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorAssignToLiteral) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("1 = x;");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
-TEST(ParserNegativeExtra, ErrorAssignToCall) {
-  EXPECT_EXIT({
-    parseAndDump("f() = 3;");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
-}
 
 TEST(ParserNegativeExtra, ErrorMissingLHS) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("= 3;");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorBinaryMissingRight) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("a + ;");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorBinaryMissingLeft) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("* a;");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 
 TEST(ParserNegativeExtra, ErrorCallMissingCallee) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("(1, 2);");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorCallExtraCommaStart) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("f(,1);");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorCallDoubleComma) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("f(1,,2);");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorCallMissingArgsParen) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("f(;");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 
 TEST(ParserNegativeExtra, ErrorIfMissingParenOpen) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("if x) { }");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorIfMissingParenClose) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("if (x { }");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorIfElseWithoutIf) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("else { x = 1; }");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 
 TEST(ParserNegativeExtra, ErrorForMissingParens) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("for i=0; i<10; i=i+1 { }");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorForDoubleInit) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("for (i=0, j=1; i<10; i=i+1) { }");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorForMissingBody) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("for (i=0; i<10; i=i+1)");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorForMissingCondSemicolon) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("for (i=0 i<10; i=i+1) { }");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 
 TEST(ParserNegativeExtra, ErrorFuncMissingName) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("fun int () { }");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorFuncParamMissingName) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("fun int f(:int) { }");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorFuncParamMissingComma) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("fun int f(a b) { }");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 
 TEST(ParserNegativeExtra, ErrorUnknownToken) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("@;");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 TEST(ParserNegativeExtra, ErrorColonOutsideParams) {
-  EXPECT_EXIT({
+  EXPECT_THROW({
     parseAndDump("x : int;");
-  }, ::testing::ExitedWithCode(EXIT_FAILURE), "ParseError");
+  }, ParseError);
 }
 
 

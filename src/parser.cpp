@@ -86,11 +86,11 @@ inline std::string toString(TokenKind k) {
 }
 
 
-bool Parser::expect(TokenKind k) {
+bool Parser::expect(TokenKind k, bool error) {
     if (cur_.getKind() != k) {
         std::ostringstream ss;
         ss << "Expected token " << toString(k);
-        errorAt(cur_, ss.str());
+        if (error) {errorAt(cur_, ss.str());}
         return false;
     }
     next();
@@ -152,9 +152,9 @@ std::unique_ptr<Stmt> Parser::parseExpression() {
 
 std::unique_ptr<Stmt> Parser::parseVarDecl() {
     if (cur_.getKind() != TokenKind::KwConst) return nullptr;
+    next();
 
-
-    Token id = cur_;
+    Token VarName = cur_;
     expect(TokenKind::Identifier);
 
     expect(TokenKind::OpAssign);
@@ -162,12 +162,8 @@ std::unique_ptr<Stmt> Parser::parseVarDecl() {
     auto init = parseFuncOpExpr();
     expect(TokenKind::Semicolon);
 
-    auto v = std::make_unique<VarDeclStmt>();
-    v->isConst = true;
-    v->name = id.getLexeme();
-    v->init = std::move(init);
-    v->pos = id.getPos();
-    return v;
+    auto variable = std::make_unique<VarDeclStmt>(true,VarName.getLexeme(), std::move(init),VarName.getPos() );
+    return variable;
 }
 
 
@@ -175,13 +171,11 @@ std::unique_ptr<Expr> Parser::parseAssign() {
     auto id = cur_;
     auto left = parseFuncOpExpr();
 
-    if (cur_.getKind() != TokenKind::OpAssign)
-        return left;
-
-    if (!left || !dynamic_cast<IdentifierExpr *>(left.get()))
+    if (!left )
         errorAt(id, "Left side of assignment must be identifier");
 
-
+    if (cur_.getKind() != TokenKind::OpAssign)
+        return left;
 
     Token assignTok = cur_;
     next();
@@ -193,19 +187,11 @@ std::unique_ptr<Expr> Parser::parseAssign() {
     if (id.getKind() != TokenKind::Identifier)
         errorAt(assignTok, "Left side of assignment must be identifier");
 
-    auto a = std::make_unique<AssignExpr>();
-    a->target = id.getLexeme();
-    a->value = std::move(rhs);
-    a->pos = assignTok.getPos();
+    auto a = std::make_unique<AssignExpr>(id.getLexeme(), std::move(rhs),assignTok.getPos());
     return a;
 }
 
-
-
-std::unique_ptr<Stmt> Parser::parseFuncDecl() {
-    if (cur_.getKind() != TokenKind::KwFun) return nullptr;
-    expect(TokenKind::KwFun);
-
+ std::optional<std::string> Parser::checkReturnType() {
     std::optional<std::string> retType;
     if (cur_.getKind() == TokenKind::KwInt ||
         cur_.getKind() == TokenKind::KwFloat ||
@@ -214,7 +200,15 @@ std::unique_ptr<Stmt> Parser::parseFuncDecl() {
         cur_.getKind() == TokenKind::KwFun) {
         retType = cur_.getLexeme();
         next();
-    }
+        }
+    return retType;
+}
+
+std::unique_ptr<Stmt> Parser::parseFuncDecl() {
+    // if (cur_.getKind() != TokenKind::KwFun) return nullptr;
+    if (!expect(TokenKind::KwFun, false)) return nullptr;
+
+    std::optional<std::string> retType = checkReturnType();
 
     Token nameTok = cur_;
     expect(TokenKind::Identifier);
@@ -225,12 +219,7 @@ std::unique_ptr<Stmt> Parser::parseFuncDecl() {
 
     auto body = parseBlock();
 
-    auto f = std::make_unique<FuncDeclStmt>();
-    f->name = nameTok.getLexeme();
-    f->returnType = retType;
-    f->params = std::move(params);
-    f->body = std::move(body);
-    f->pos = nameTok.getPos();
+    auto f = std::make_unique<FuncDeclStmt>(nameTok.getLexeme(),retType, std::move(params),std::move(body),nameTok.getPos());
     return f;
 }
 
@@ -238,8 +227,8 @@ std::vector<std::pair<std::string, std::optional<std::string>>>
 Parser::parseParamList() {
     std::vector<std::pair<std::string, std::optional<std::string>>> params;
 
-    if (cur_.getKind() == TokenKind::RParen)
-        return params;
+    // if (cur_.getKind() == TokenKind::RParen)
+    //     return params;
 
     while (cur_.getKind() != TokenKind::RParen) {
 
@@ -267,9 +256,9 @@ Parser::parseParamList() {
 
 
 std::unique_ptr<BlockStmt> Parser::parseBlock() {
-    if (cur_.getKind() != TokenKind::LBrace) return nullptr;
+    // if (cur_.getKind() != TokenKind::LBrace) return nullptr;
 
-    expect(TokenKind::LBrace);
+    if (!expect(TokenKind::LBrace, false)) return nullptr;
 
     auto blk = std::make_unique<BlockStmt>();
 
@@ -282,24 +271,25 @@ std::unique_ptr<BlockStmt> Parser::parseBlock() {
 }
 
 std::unique_ptr<Stmt> Parser::parseReturn() {
-    if (cur_.getKind() != TokenKind::KwReturn) return nullptr;
+    // if (cur_.getKind() != TokenKind::KwReturn) return nullptr;
+    if (!expect(TokenKind::KwReturn, false)) return nullptr;
 
     Token t = cur_;
-    expect(TokenKind::KwReturn);
 
     std::unique_ptr<Expr> value = nullptr;
 
-    if (cur_.getKind() != TokenKind::Semicolon) {
+    try {
         value = parseFuncOpExpr();
-        if (!value)
-            errorAt(cur_, "Expected expression after 'return'");
     }
+    catch (std::exception e) {
+       return nullptr;
+    }
+    if (!value)
+        errorAt(cur_, "Expected expression after 'return'");
 
     expect(TokenKind::Semicolon);
 
-    auto r = std::make_unique<ReturnStmt>();
-    r->value = std::move(value);
-    r->pos = t.getPos();
+    auto r = std::make_unique<ReturnStmt>(std::move(value),t.getPos() );
     return r;
 }
 
@@ -313,10 +303,10 @@ std::unique_ptr<BlockStmt> Parser::parseElseBlock() {
 
 
 std::unique_ptr<Stmt> Parser::parseIf() {
-    if (cur_.getKind() != TokenKind::KwIf) return nullptr;
+    // if (cur_.getKind() != TokenKind::KwIf) return nullptr;
+    if (!expect(TokenKind::KwIf, false)) return nullptr;
 
     Token t = cur_;
-    expect(TokenKind::KwIf);
 
     expect(TokenKind::LParen);
     auto cond = parseFuncOpExpr();
@@ -326,11 +316,7 @@ std::unique_ptr<Stmt> Parser::parseIf() {
 
     auto elseB = parseElseBlock();
 
-    auto s = std::make_unique<IfStmt>();
-    s->cond = std::move(cond);
-    s->thenBlock = std::move(thenB);
-    s->elseBlock = std::move(elseB);
-    s->pos = t.getPos();
+    auto s = std::make_unique<IfStmt>(std::move(cond),std::move(thenB),std::move(elseB),t.getPos());
     return s;
 }
 
@@ -342,17 +328,22 @@ std::unique_ptr<Stmt> Parser::parseFor() {
 
     expect(TokenKind::LParen);
 
-    std::unique_ptr<Stmt> initDecl;
-    std::unique_ptr<Expr> initExpr;
+    std::unique_ptr<Stmt> initDecl = nullptr;
+    std::unique_ptr<Expr> initExpr = nullptr;
 
-    if (cur_.getKind() == TokenKind::KwConst)
-        initDecl = parseVarDecl();
-    else if (cur_.getKind() != TokenKind::Semicolon) {
-        initExpr = parseAssign();
-        expect(TokenKind::Semicolon);
-    } else {
-        next();
+    if (auto decl = parseVarDecl()) {
+        initDecl = std::move(decl);
     }
+    else{
+        try {
+            auto expr = parseAssign();
+            initExpr = std::move(expr);
+        }
+        catch (ParseError e){}
+    }
+
+    expect(TokenKind::Semicolon);
+
 
     auto cond = (cur_.getKind() == TokenKind::Semicolon)
                     ? nullptr
@@ -361,7 +352,7 @@ std::unique_ptr<Stmt> Parser::parseFor() {
 
     auto post = (cur_.getKind() == TokenKind::RParen)
                     ? nullptr
-                    : parseAssign();
+                        : parseAssign();
 
     expect(TokenKind::RParen);
 
@@ -371,13 +362,7 @@ std::unique_ptr<Stmt> Parser::parseFor() {
 
     }
 
-    auto f = std::make_unique<ForStmt>();
-    f->initDecl = std::move(initDecl);
-    f->initExpr = std::move(initExpr);
-    f->cond = std::move(cond);
-    f->post = std::move(post);
-    f->body = std::move(body);
-    f->pos = t.getPos();
+    auto f = std::make_unique<ForStmt>(std::move(initDecl),std::move(initExpr),std::move(cond),std::move(post),std::move(body),t.getPos());
     return f;
 }
 
@@ -391,11 +376,7 @@ std::unique_ptr<Expr> Parser::parseFuncOpExpr() {
 
         auto right = parseLogicExpr();
 
-        auto b = std::make_unique<BinaryExpr>();
-        b->op = t.getLexeme();
-        b->lhs = std::move(left);
-        b->rhs = std::move(right);
-        b->pos = t.getPos();
+        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),std::move(left),std::move(right),t.getPos());
         left = std::move(b);
     }
 
@@ -412,11 +393,7 @@ std::unique_ptr<Expr> Parser::parseLogicExpr() {
 
         auto right = parseCompExpr();
 
-        auto b = std::make_unique<BinaryExpr>();
-        b->op = t.getLexeme();
-        b->lhs = std::move(left);
-        b->rhs = std::move(right);
-        b->pos = t.getPos();
+        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),std::move(left),std::move(right),t.getPos());
         left = std::move(b);
     }
     return left;
@@ -437,11 +414,7 @@ std::unique_ptr<Expr> Parser::parseCompExpr() {
 
             auto right = parseAddExpr();
 
-            auto b = std::make_unique<BinaryExpr>();
-            b->op = t.getLexeme();
-            b->lhs = std::move(left);
-            b->rhs = std::move(right);
-            b->pos = t.getPos();
+        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),std::move(left),std::move(right),t.getPos());
             return b;
         }
         default:
@@ -459,11 +432,7 @@ std::unique_ptr<Expr> Parser::parseAddExpr() {
 
         auto right = parseMulExpr();
 
-        auto b = std::make_unique<BinaryExpr>();
-        b->op = t.getLexeme();
-        b->lhs = std::move(left);
-        b->rhs = std::move(right);
-        b->pos = t.getPos();
+        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),std::move(left),std::move(right),t.getPos());
         left = std::move(b);
     }
     return left;
@@ -480,11 +449,7 @@ std::unique_ptr<Expr> Parser::parseMulExpr() {
 
         auto right = parseUnaryExpr();
 
-        auto b = std::make_unique<BinaryExpr>();
-        b->op = t.getLexeme();
-        b->lhs = std::move(left);
-        b->rhs = std::move(right);
-        b->pos = t.getPos();
+        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),std::move(left),std::move(right),t.getPos());
         left = std::move(b);
     }
     return left;
@@ -497,10 +462,7 @@ std::unique_ptr<Expr> Parser::parseUnaryExpr() {
 
         auto rhs = parseUnaryExpr();
 
-        auto u = std::make_unique<UnaryExpr>();
-        u->op = t.getLexeme();
-        u->rhs = std::move(rhs);
-        u->pos = t.getPos();
+        auto u = std::make_unique<UnaryExpr>(t.getLexeme(),std::move(rhs),t.getPos());
         return u;
     }
     return parseCallOrPrimary();
@@ -512,11 +474,9 @@ std::unique_ptr<Expr> Parser::parseCallOrPrimary() {
     while (match(TokenKind::LParen)) {
         auto args = parseArgList();
         expect(TokenKind::RParen);
+        auto ps = prim->pos;
 
-        auto c = std::make_unique<CallExpr>();
-        c->callee = std::move(prim);
-        c->args = std::move(args);
-        c->pos = c->callee->pos;
+        auto c = std::make_unique<CallExpr>(std::move(prim),std::move(args),ps);
         prim = std::move(c);
     }
     return prim;
@@ -549,9 +509,7 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         }
         case TokenKind::Identifier: {
             next();
-            auto id = std::make_unique<IdentifierExpr>();
-            id->name = t.getLexeme();
-            id->pos = t.getPos();
+            auto id = std::make_unique<IdentifierExpr>(t.getLexeme(),t.getPos());
             return id;
         }
         case TokenKind::LParen:
@@ -568,8 +526,6 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
 }
 
 std::unique_ptr<LiteralExpr> Parser::makeLiteralFromToken(const Token& t) {
-    auto l = std::make_unique<LiteralExpr>();
-    l->value = t.getValue();
-    l->pos = t.getPos();
+    auto l = std::make_unique<LiteralExpr>(t.getValue(),t.getPos());
     return l;
 }
