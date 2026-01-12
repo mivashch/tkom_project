@@ -1,44 +1,34 @@
-#include <iostream>
-#include <memory>
-#include <string>
-#include "source.h"
 #include "lexer.h"
 #include "parser.h"
-#include "ast.h"
-#include "ast_dump.h"
+#include "interpreter.h"
+#include <fstream>
+#include <sstream>
+#include <iostream>
 
 using namespace minilang;
 
-int main(int argc, char **argv) {
-        std::unique_ptr<Source> src;
-        if (argc > 1) {
-            src = makeFileSource(argv[1]);
-        } else {
-            std::string sample = R"(
-const y = 2;
-)";
-            src = makeStringSource(sample);
-        }
-
-        Lexer lexer(std::move(src));
-
-        Parser parser(lexer);
-
-        std::unique_ptr<Program> prog = parser.parseProgram();
-
-        if (!prog) {
-            std::cerr << "Parse error: "
-                    << parser.lastError().value_or("unknown error") << "\n";
-            return 1;
-        }
-
-        std::cout << "Parsing completed successfully!\n";
-
-        AstPrinter printer(std::cout);
-        printer.dump(*prog);
-
-
-
-
-        return 0;
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        std::cerr << "Usage: interpreter <file>\n";
+        return 1;
     }
+
+    std::ifstream in(argv[1]);
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+
+    try {
+        Lexer lx(makeStringSource(buffer.str()));
+        Parser p(lx);
+        auto program = p.parseProgram();
+
+        Interpreter interp;
+        interp.execute(*program);
+    }
+    catch (const ParseError& e) {
+        std::cerr << e.what() << "\n";
+    }
+    catch (const RuntimeError& e) {
+        std::cerr << e.what() << "\n";
+    }
+}

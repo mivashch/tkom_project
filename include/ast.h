@@ -179,7 +179,6 @@ struct ASTVisitor {
     virtual void visit(UnaryExpr&) = 0;
     virtual void visit(BinaryExpr&) = 0;
     virtual void visit(CallExpr&) = 0;
-    virtual void visit(LambdaExpr&) = 0;
 
     virtual void visit(ExprStmt&) = 0;
     virtual void visit(VarDeclStmt&) = 0;

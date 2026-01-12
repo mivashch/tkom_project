@@ -78,22 +78,6 @@ void AstPrinter::visit(CallExpr& e) {
     indent -= 2;
 }
 
-void AstPrinter::visit(LambdaExpr& e) {
-    pad();
-    os << "Lambda(";
-    for (size_t i = 0; i < e.params.size(); i++) {
-        if (i) os << ", ";
-        os << e.params[i];
-    }
-    os << ")\n";
-
-    indent++;
-    pad();
-    os << "Body:\n";
-    indent++;
-    e.bodyExpr->accept(*this);
-    indent -= 2;
-}
 
 void AstPrinter::visit(ExprStmt& s) {
     if (s.expr) {

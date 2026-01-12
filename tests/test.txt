@@ -1,0 +1,23 @@
+fun int add(a : int, b : int) {
+    return a + b;
+}
+result = add(2, 3);
+print(result);
+fun int factorial(n) {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+f = factorial(5); // wynik: 120
+print(f);
+fun fun get_func() {
+    return inc;
+}
+
+fun int inc(x : int) {
+    return x + 1;
+}
+
+print(get_func()(7));

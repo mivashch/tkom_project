@@ -13,7 +13,6 @@ namespace minilang::ast {
     void UnaryExpr::accept(ASTVisitor& v) { v.visit(*this); }
     void BinaryExpr::accept(ASTVisitor& v) { v.visit(*this); }
     void CallExpr::accept(ASTVisitor& v) { v.visit(*this); }
-    void LambdaExpr::accept(ASTVisitor& v) { v.visit(*this); }
     void AssignExpr::accept(ASTVisitor& v) { v.visit(*this); }
 
     void ExprStmt::accept(ASTVisitor& v) { v.visit(*this); }
