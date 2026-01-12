@@ -271,27 +271,24 @@ std::unique_ptr<BlockStmt> Parser::parseBlock() {
 }
 
 std::unique_ptr<Stmt> Parser::parseReturn() {
-    // if (cur_.getKind() != TokenKind::KwReturn) return nullptr;
-    if (!expect(TokenKind::KwReturn, false)) return nullptr;
+    if (!match(TokenKind::KwReturn))
+        return nullptr;
 
-    Token t = cur_;
+    Position pos = cur_.getPos();
 
     std::unique_ptr<Expr> value = nullptr;
 
-    try {
+    if (cur_.getKind() != TokenKind::Semicolon) {
         value = parseFuncOpExpr();
+        if (!value)
+            errorAt(cur_, "Invalid expression after 'return'");
     }
-    catch (std::exception e) {
-       return nullptr;
-    }
-    if (!value)
-        errorAt(cur_, "Expected expression after 'return'");
 
     expect(TokenKind::Semicolon);
 
-    auto r = std::make_unique<ReturnStmt>(std::move(value),t.getPos() );
-    return r;
+    return std::make_unique<ReturnStmt>(std::move(value), pos);
 }
+
 
 
 std::unique_ptr<BlockStmt> Parser::parseElseBlock() {

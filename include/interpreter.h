@@ -25,21 +25,24 @@ namespace minilang {
     struct Function {
         std::vector<std::string> params;
         std::unique_ptr<ast::BlockStmt> body;
-        std::function<Value(const std::vector<Value>&)> builtin;
+        std::function<Value(const std::vector<Value> &)> builtin;
     };
 
     struct Environment {
         std::unordered_map<std::string, Value> vars;
-        Environment* parent = nullptr;
+        Environment *parent = nullptr;
 
-        Value& lookup(const std::string& name);
-        bool existsLocal(const std::string& name) const ;
-        bool exists(const std::string& name) const;
-        void define(const std::string& name, Value v);
+        Value &lookup(const std::string &name);
+
+        bool existsLocal(const std::string &name) const;
+
+        bool exists(const std::string &name) const;
+
+        void define(const std::string &name, Value v);
     };
 
     struct OutputValue {
-        std::ostream& os;
+        std::ostream &os;
 
         void operator()(std::monostate) const {
         }
@@ -52,7 +55,7 @@ namespace minilang {
             os << v;
         }
 
-        void operator()(const std::string& v) const {
+        void operator()(const std::string &v) const {
             os << v;
         }
 
@@ -60,7 +63,7 @@ namespace minilang {
             os << std::boolalpha << v;
         }
 
-        void operator()(const std::shared_ptr<Function>&) const {
+        void operator()(const std::shared_ptr<Function> &) const {
             os << "<function>";
         }
     };
@@ -74,33 +77,52 @@ namespace minilang {
     public:
         Interpreter();
 
-        void execute(ast::Program& p);
+        void execute(ast::Program &p);
 
-        void visit(ast::LiteralExpr&) override;
-        void visit(ast::IdentifierExpr&) override;
-        void visit(ast::UnaryExpr&) override;
-        void visit(ast::BinaryExpr&) override;
-        void visit(ast::CallExpr&) override;
-        void visit(ast::AssignExpr&) override;
+        void visit(ast::LiteralExpr &) override;
 
-        void visit(ast::ExprStmt&) override;
-        void visit(ast::VarDeclStmt&) override;
-        void visit(ast::ReturnStmt&) override;
-        void visit(ast::BlockStmt&) override;
-        void visit(ast::IfStmt&) override;
-        void visit(ast::ForStmt&) override;
-        void visit(ast::FuncDeclStmt&) override;
-        void visit(ast::Program&) override;
-        bool isTruthy(const Value& v);
-        static long long asInt(const Value& v);
-        static double asDouble(const Value& v);
-        static bool asBool(const Value& v);
+        void visit(ast::IdentifierExpr &) override;
+
+        void visit(ast::UnaryExpr &) override;
+
+        void visit(ast::BinaryExpr &) override;
+
+        void visit(ast::CallExpr &) override;
+
+        void visit(ast::AssignExpr &) override;
+
+        void visit(ast::ExprStmt &) override;
+
+        void visit(ast::VarDeclStmt &) override;
+
+        void visit(ast::ReturnStmt &) override;
+
+        void visit(ast::BlockStmt &) override;
+
+        void visit(ast::IfStmt &) override;
+
+        void visit(ast::ForStmt &) override;
+
+        void visit(ast::FuncDeclStmt &) override;
+
+        void visit(ast::Program &) override;
+
+        bool isTruthy(const Value &v);
+
+        static long long asInt(const Value &v);
+
+        static double asDouble(const Value &v);
+
+        static bool asBool(const Value &v);
+        bool forConditionHolds(const ast::ForStmt& s);
+
+
+        Value &getLastValue();
 
     private:
-        Environment* env_;
+        Environment *env_;
         std::unordered_map<std::string, FunctionPtr> functions_;
 
         Value lastValue_;
     };
-
 }

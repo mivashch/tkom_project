@@ -88,12 +88,17 @@ bool Interpreter::asBool(const Value& v) {
         else if constexpr (std::is_same_v<T, double>)
             return x != 0.0;
         else if constexpr (std::is_same_v<T, std::string>)
-            return !x.empty();
+            // return !x.empty();
+            throw RuntimeError({}, "Invalid boolean context");
+
         else
             throw RuntimeError({}, "Invalid boolean context");
     }, v);
 }
 
+Value &Interpreter::getLastValue() {
+    return lastValue_;
+}
 
 
 
@@ -189,6 +194,16 @@ void Interpreter::visit(CallExpr& e) {
 
     Function& fn = **fnPtr;
 
+    if (args.size() != fn.params.size()) {
+        throw RuntimeError(
+            e.pos,
+            "Wrong number of arguments: expected " +
+            std::to_string(fn.params.size()) +
+            ", got " +
+            std::to_string(args.size())
+        );
+    }
+
     if (fn.builtin) {
         lastValue_ = fn.builtin(args);
         return;
@@ -197,7 +212,7 @@ void Interpreter::visit(CallExpr& e) {
     Environment local;
     local.parent = env_;
 
-    for (size_t i = 0; i < fn.params.size(); ++i)
+    for (size_t i = 0; i < args.size(); ++i)
         local.vars[fn.params[i]] = args[i];
 
     Environment* saved = env_;
@@ -205,13 +220,14 @@ void Interpreter::visit(CallExpr& e) {
 
     try {
         fn.body->accept(*this);
-        lastValue_ = {};
+        lastValue_ = std::monostate{};
     } catch (ReturnSignal& r) {
         lastValue_ = r.value;
     }
 
     env_ = saved;
 }
+
 
 
 
@@ -262,18 +278,26 @@ void Interpreter::visit(IfStmt& s) {
     }
 }
 
+bool Interpreter::forConditionHolds(const ForStmt& s) {
+    if (!s.cond)
+        return true; //if we dont want infinit loop for(;;) just change to false
+
+    s.cond->accept(*this);
+    return asBool(lastValue_);
+}
 
 void Interpreter::visit(ForStmt& s) {
-    if (s.initExpr) s.initExpr->accept(*this);
-    while (true) {
-        if (s.cond) {
-            s.cond->accept(*this);
-            if (!std::get<bool>(lastValue_)) break;
-        }
+    if (s.initExpr)
+        s.initExpr->accept(*this);
+
+    while (forConditionHolds(s)) {
         s.body->accept(*this);
-        if (s.post) s.post->accept(*this);
+
+        if (s.post)
+            s.post->accept(*this);
     }
 }
+
 
 void Interpreter::visit(FuncDeclStmt& s) {
     auto fn = std::make_shared<Function>();
