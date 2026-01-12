@@ -24,6 +24,8 @@ add_library(parser_lib
         src/ast_dump.cpp
         src/ast.cpp
         src/source.cpp
+        src/interpreter.cpp
+
 )
 
 target_include_directories(parser_lib PUBLIC include)
@@ -39,6 +41,9 @@ add_executable(parser_demo
         src/ast_dump.cpp
         src/ast.cpp
         src/source.cpp
+        include/runtime_error.h
+        include/interpreter.h
+        src/interpreter.cpp
 )
 
 target_link_libraries(parser_demo PRIVATE parser_lib)
