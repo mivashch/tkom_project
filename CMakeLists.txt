@@ -30,7 +30,7 @@ add_library(parser_lib
 
 target_include_directories(parser_lib PUBLIC include)
 
-add_executable(parser_demo
+add_executable(interpreter_demo
         src/main.cpp
         include/tools.h
         include/parser.h
@@ -46,7 +46,7 @@ add_executable(parser_demo
         src/interpreter.cpp
 )
 
-target_link_libraries(parser_demo PRIVATE parser_lib)
+target_link_libraries(interpreter_demo PRIVATE parser_lib)
 
 add_executable(parser_tests
         tests/tests.cpp

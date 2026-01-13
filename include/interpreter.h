@@ -144,6 +144,10 @@ namespace minilang {
 
         static bool asBool(const Value &v);
         bool forConditionHolds(const ast::ForStmt& s);
+        long long toInt(const Value& v);
+        double toNumber(const Value& v);
+        std::string toString(const Value& v);
+        bool toBool(const Value& v);
 
 
         Value &getLastValue();

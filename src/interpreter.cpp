@@ -1,8 +1,18 @@
 #include "interpreter.h"
 #include <iostream>
+#include <limits>
 
 using namespace minilang;
 using namespace minilang::ast;
+
+template<class... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
+
+template<class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
+
 
 Value& Environment::lookup(const std::string& name) {
     if (vars.count(name)) return vars[name];
@@ -100,6 +110,66 @@ Value &Interpreter::getLastValue() {
     return lastValue_;
 }
 
+long long Interpreter::toInt(const Value& v) {
+    return std::visit(overloaded {
+        [](long long x) { return x; },
+        [](double x)    { return static_cast<long long>(x); },
+        [](bool x)      { return x ? 1LL : 0LL; },
+        [](const std::string& s) {
+            try {
+                return std::stoll(s);
+            } catch (...) {
+                throw RuntimeError({}, "Cannot convert string to int: " + s);
+            }
+        },
+        [](auto&) -> long long {
+            throw RuntimeError({}, "Invalid int conversion");
+        }
+    }, v);
+}
+
+double Interpreter::toNumber(const Value& v) {
+    return std::visit(overloaded {
+        [](long long x) { return static_cast<double>(x); },
+        [](double x)    { return x; },
+        [](bool x)      { return x ? 1.0 : 0.0; },
+        [](const std::string& s) {
+            try {
+                return std::stod(s);
+            } catch (...) {
+                throw RuntimeError({}, "Cannot convert string to number: " + s);
+            }
+        },
+        [](auto&) -> double {
+            throw RuntimeError({}, "Invalid numeric conversion");
+        }
+    }, v);
+}
+
+std::string Interpreter::toString(const Value& v) {
+    return std::visit(overloaded{
+        [](const std::string& s) -> std::string {return s;},
+        [](long long x) -> std::string {return std::to_string(x);},
+        [](double x) -> std::string {return std::to_string(x);},
+        [](bool x) -> std::string {return x ? std::string("true") : std::string("false");},
+        [](std::monostate) -> std::string {return std::string("null");},
+        [](auto&) -> std::string {throw RuntimeError({}, "Cannot convert to string");}
+    }, v);
+}
+
+
+bool Interpreter::toBool(const Value& v) {
+    return std::visit(overloaded {
+        [](bool b)        { return b; },
+        [](long long x)   { return x != 0; },
+        [](double x)      { return x != 0.0; },
+        [](const std::string& s) { return !s.empty(); },
+        [](std::monostate){ return false; },
+        [](auto&) -> bool {
+            throw RuntimeError({}, "Invalid boolean context");
+        }
+    }, v);
+}
 
 
 void Interpreter::visit(LiteralExpr& e) {
@@ -137,38 +207,82 @@ void Interpreter::visit(UnaryExpr& e) {
 void Interpreter::visit(BinaryExpr& e) {
     e.lhs->accept(*this);
     Value l = lastValue_;
+
     e.rhs->accept(*this);
     Value r = lastValue_;
 
-    if (e.op == "+")
-        lastValue_ = asDouble(l) + asDouble(r);
-    else if (e.op == "-")
-        lastValue_ = asDouble(l) - asDouble(r);
-    else if (e.op == "*")
-        lastValue_ = asDouble(l) * asDouble(r);
-    else if (e.op == "/")
-        lastValue_ = asDouble(l) / asDouble(r);
-    else if (e.op == "%")
-        lastValue_ = asInt(l) % asInt(r);
+    const std::string& op = e.op;
 
-    else if (e.op == "==")
-        lastValue_ = asDouble(l) == asDouble(r);
-    else if (e.op == "!=")
-        lastValue_ = asDouble(l) != asDouble(r);
-    else if (e.op == "<")
-        lastValue_ = asDouble(l) < asDouble(r);
-    else if (e.op == "<=")
-        lastValue_ = asDouble(l) <= asDouble(r);
-    else if (e.op == ">")
-        lastValue_ = asDouble(l) > asDouble(r);
-    else if (e.op == ">=")
-        lastValue_ = asDouble(l) >= asDouble(r);
+    if (e.op == "+") {
+        if (std::holds_alternative<std::string>(l)) {
+            lastValue_ = toString(l) + toString(r);
+        }
+        else {
+            lastValue_ = toNumber(l) + toNumber(r);
+        }
+        return;
+    }
 
-    else if (e.op == "&&")
+    if (op == "-") {
+        lastValue_ = toNumber(l) - toNumber(r);
+        return;
+    }
+
+    if (op == "*") {
+        lastValue_ = toNumber(l) * toNumber(r);
+        return;
+    }
+
+    if (op == "/") {
+        double denom = toNumber(r);
+        if (denom == 0.0)
+            lastValue_ = std::numeric_limits<double>::infinity();
+        else
+            lastValue_ = toNumber(l) / denom;
+        return;
+    }
+
+    if (op == "%") {
+        long long a = toInt(l);
+        long long b = toInt(r);
+        if (b == 0)
+            throw RuntimeError(e.pos, "Modulo by zero");
+        lastValue_ = a % b;
+        return;
+    }
+
+    if (op == "==" || op == "!=" ||
+        op == "<"  || op == "<=" ||
+        op == ">"  || op == ">=") {
+
+        bool result;
+
+            double a = toNumber(l);
+            double b = toNumber(r);
+
+            if (op == "==") result = a == b;
+            else if (op == "!=") result = a != b;
+            else if (op == "<") result = a < b;
+            else if (op == "<=") result = a <= b;
+            else if (op == ">") result = a > b;
+            else result = a >= b;
+
+
+        lastValue_ = result;
+        return;
+    }
+
+    if (op == "&&") {
         lastValue_ = asBool(l) && asBool(r);
-    else if (e.op == "||")
+        return;
+    }
+
+    if (op == "||") {
         lastValue_ = asBool(l) || asBool(r);
-    else if (e.op == "&*&") {
+        return;
+    }
+
+     if (e.op == "&*&") {
         auto baseFn = std::get_if<FunctionPtr>(&l);
         auto decoFn = std::get_if<FunctionPtr>(&r);
 

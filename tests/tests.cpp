@@ -1010,3 +1010,150 @@ TEST(InterpreterDecoratorBehavior, RecursiveWithDecorator) {
     )");
     EXPECT_NUM(v, 120);
 }
+
+
+TEST(TypeCoercion, IntToStringAssignment) {
+    auto v = runProgram(R"(
+        a = "hello";
+        b = 123;
+        c = a + b;
+    )");
+    EXPECT_STR(v, "hello123");
+}
+
+
+
+TEST(TypeCoercion, StringWithSpacesToInt) {
+    auto v = runProgram(R"(
+        x = "   42 ";
+        x = 0;
+        x;
+    )");
+    EXPECT_INT(v, 0);
+}
+
+TEST(TypeCoercion, AddStringAndInt) {
+    auto v = runProgram(R"(
+        "2" + 3;
+    )");
+    EXPECT_STR(v, "23");
+}
+
+TEST(TypeCoercion, AddIntAndString) {
+    auto v = runProgram(R"(
+        2 + "3";
+    )");
+    EXPECT_NUM(v, 5);
+}
+
+TEST(TypeCoercion, AddTwoStringsNumeric) {
+    auto v = runProgram(R"(
+        "10" + "20";
+    )");
+    EXPECT_STR(v, "1020");
+}
+
+TEST(TypeCoercion, SubtractStringNumber) {
+    auto v = runProgram(R"(
+        "10" - 3;
+    )");
+    EXPECT_NUM(v, 7);
+}
+
+TEST(TypeCoercion, MultiplyStringAndInt) {
+    auto v = runProgram(R"(
+        "6" * 7;
+    )");
+    EXPECT_NUM(v, 42);
+}
+
+TEST(TypeCoercion, DivideStringAndInt) {
+    auto v = runProgram(R"(
+        "8" / 2;
+    )");
+    EXPECT_NUM(v, 4);
+}
+
+TEST(TypeCoercion, ModuloStringInt) {
+    auto v = runProgram(R"(
+        "7" % 3;
+    )");
+    EXPECT_INT(v, 1);
+}
+
+TEST(TypeCoercion, PercentConcatenationBasic) {
+    EXPECT_THROW(
+    auto v = runProgram(R"(
+        "a" % "b";
+    )"), RuntimeError);
+}
+
+
+TEST(TypeCoercion, PercentConcatenationMixed) {
+    auto v = runProgram(R"(
+        "1 + " + 2;
+    )");
+    EXPECT_STR(v, "1 + 2");
+}
+
+TEST(TypeCoercion, CompareStringAndIntEqual) {
+    auto v = runProgram(R"(
+        "10" == 10;
+    )");
+    EXPECT_BOOL(v, true);
+}
+
+TEST(TypeCoercion, CompareStringAndIntLess) {
+    auto v = runProgram(R"(
+        "5" < 10;
+    )");
+    EXPECT_BOOL(v, true);
+}
+
+TEST(TypeCoercion, CompareTwoStringsNumeric) {
+    auto v = runProgram(R"(
+        "20" > "3";
+    )");
+    EXPECT_BOOL(v, true);
+}
+
+TEST(TypeCoercion, BoolFromIntZero) {
+    auto v = runProgram(R"(
+        if (0) { 1; } else { 2; }
+    )");
+    EXPECT_INT(v, 2);
+}
+
+TEST(TypeCoercion, BoolFromStringEmpty) {
+    auto v = runProgram(R"(
+        if ("") { 1; } else { 2; }
+    )");
+    EXPECT_INT(v, 2);
+}
+
+TEST(TypeCoercion, BoolFromStringNonEmpty) {
+    auto v = runProgram(R"(
+        if ("abc") { 1; } else { 2; }
+    )");
+    EXPECT_INT(v, 1);
+}
+
+
+TEST(TypeCoercionError, InvalidModuloString) {
+    EXPECT_THROW(
+        runProgram(R"(
+            "x" % 2;
+        )"),
+        RuntimeError
+    );
+}
+
+TEST(TypeCoercionError, CompareNonNumericString) {
+    EXPECT_THROW(
+        runProgram(R"(
+            "abc" < 5;
+        )"),
+        RuntimeError
+    );
+}
+
