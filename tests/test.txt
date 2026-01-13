@@ -21,3 +21,26 @@ fun int inc(x : int) {
 }
 
 print(get_func()(7));
+
+fun int ident(x:int) {
+    return x;
+}
+
+fun int add1_decorator(f:fun, x:int) {
+    return f(x + 1);
+}
+
+decorated = ident &*& add1_decorator;
+
+result = decorated(7);
+print(result);
+
+fun int add3(a:int, b:int, c:int) {
+    return a + b + c;
+}
+
+add_5_7 = (5, 7) =>> add3;
+result = add_5_7(3);
+
+print(result);   // 15
+

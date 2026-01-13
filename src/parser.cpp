@@ -504,23 +504,40 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
             next();
             return makeLiteralFromToken(t);
         }
+
         case TokenKind::Identifier: {
             next();
-            auto id = std::make_unique<IdentifierExpr>(t.getLexeme(),t.getPos());
-            return id;
+            return std::make_unique<IdentifierExpr>(t.getLexeme(), t.getPos());
         }
-        case TokenKind::LParen:
+
+        case TokenKind::LParen: {
             next();
-            {
-                auto e = parseFuncOpExpr();
+
+            auto first = parseFuncOpExpr();
+
+            if (match(TokenKind::Comma)) {
+                auto tuple = std::make_unique<TupleExpr>();
+                tuple->pos = t.getPos();
+                tuple->elements.push_back(std::move(first));
+
+                do {
+                    tuple->elements.push_back(parseFuncOpExpr());
+                } while (match(TokenKind::Comma));
+
                 expect(TokenKind::RParen);
-                return e;
+                return tuple;
             }
+
+            expect(TokenKind::RParen);
+            return first;
+        }
+
         default:
             errorAt(cur_, "Expected primary expression");
             return nullptr;
     }
 }
+
 
 std::unique_ptr<LiteralExpr> Parser::makeLiteralFromToken(const Token& t) {
     auto l = std::make_unique<LiteralExpr>(t.getValue(),t.getPos());

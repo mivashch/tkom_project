@@ -214,4 +214,16 @@ void AstPrinter::visit(Program& p) {
     indent--;
 }
 
+void AstPrinter::visit(TupleExpr& e) {
+    pad();
+    os << "Tuple:\n";
+
+    indent++;
+    for (auto& elem : e.elements) {
+        elem->accept(*this);
+    }
+    indent--;
+}
+
+
 }

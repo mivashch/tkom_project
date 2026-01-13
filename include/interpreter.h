@@ -12,14 +12,23 @@ namespace minilang {
 
     using FunctionPtr = std::shared_ptr<Function>;
 
+    struct TupleValue;
+
     using Value = std::variant<
         std::monostate,
         long long,
         double,
         std::string,
         bool,
-        FunctionPtr
+        FunctionPtr,
+        std::shared_ptr<TupleValue>
     >;
+
+    struct TupleValue {
+        std::vector<Value> elements;
+    };
+
+
 
 
     struct Function {
@@ -42,9 +51,10 @@ namespace minilang {
     };
 
     struct OutputValue {
-        std::ostream &os;
+        std::ostream& os;
 
         void operator()(std::monostate) const {
+            os << "<null>";
         }
 
         void operator()(long long v) const {
@@ -55,7 +65,7 @@ namespace minilang {
             os << v;
         }
 
-        void operator()(const std::string &v) const {
+        void operator()(const std::string& v) const {
             os << v;
         }
 
@@ -63,10 +73,27 @@ namespace minilang {
             os << std::boolalpha << v;
         }
 
-        void operator()(const std::shared_ptr<Function> &) const {
+        void operator()(const FunctionPtr&) const {
             os << "<function>";
         }
+
+        void operator()(const std::shared_ptr<TupleValue>& t) const {
+            if (!t) {
+                os << "<tuple:null>";
+                return;
+            }
+
+            os << "(";
+            for (size_t i = 0; i < t->elements.size(); ++i) {
+                if (i > 0)
+                    os << ", ";
+                std::visit(OutputValue{os}, t->elements[i]);
+            }
+            os << ")";
+        }
     };
+
+
 
     struct ReturnSignal {
         Value value;
@@ -90,6 +117,7 @@ namespace minilang {
         void visit(ast::CallExpr &) override;
 
         void visit(ast::AssignExpr &) override;
+        void visit(ast::TupleExpr &) override;
 
         void visit(ast::ExprStmt &) override;
 
@@ -106,6 +134,7 @@ namespace minilang {
         void visit(ast::FuncDeclStmt &) override;
 
         void visit(ast::Program &) override;
+        Value invoke( const Value& callee, const std::vector<Value>& args, Position pos);
 
         bool isTruthy(const Value &v);
 

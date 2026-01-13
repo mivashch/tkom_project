@@ -87,6 +87,12 @@ struct AssignExpr : Expr {
     void accept(ASTVisitor &v) override;
 };
 
+struct TupleExpr : Expr {
+    std::vector<std::unique_ptr<Expr>> elements;
+    void accept(ASTVisitor& v) override;
+};
+
+
 struct Stmt : Node {
     Stmt() = default;
 };
@@ -179,6 +185,8 @@ struct ASTVisitor {
     virtual void visit(UnaryExpr&) = 0;
     virtual void visit(BinaryExpr&) = 0;
     virtual void visit(CallExpr&) = 0;
+    virtual void visit(TupleExpr&) = 0;
+
 
     virtual void visit(ExprStmt&) = 0;
     virtual void visit(VarDeclStmt&) = 0;

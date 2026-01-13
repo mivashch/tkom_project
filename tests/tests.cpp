@@ -692,5 +692,321 @@ TEST(InterpreterEdge, MultipleFunctionsIndependent) {
     EXPECT_NUM(v, 3);
 }
 
+TEST(InterpreterBind, BindOneArgument) {
+    auto v = runProgram(R"(
+        fun int add(a:int, b:int) {
+            return a + b;
+        }
+        add10 = (10) =>> add;
+        add10(5);
+    )");
+    EXPECT_NUM(v, 15);
+}
 
+TEST(InterpreterBind, BindTwoArguments) {
+    auto v = runProgram(R"(
+        fun int add3(a:int, b:int, c:int) {
+            return a + b + c;
+        }
+        f = (1, 2) =>> add3;
+        f(3);
+    )");
+    EXPECT_NUM(v, 6);
+}
 
+TEST(InterpreterBind, ChainedBind) {
+    auto v = runProgram(R"(
+        fun int add3(a:int, b:int, c:int) {
+            return a + b + c;
+        }
+        f1 = (1) =>> add3;
+        f2 = (2) =>> f1;
+        f2(3);
+    )");
+    EXPECT_NUM(v, 6);
+}
+
+TEST(InterpreterBind, BindInsideExpression) {
+    auto v = runProgram(R"(
+        fun int mul(a:int, b:int) {
+            return a * b;
+        }
+        ((2) =>> mul)(5);
+    )");
+    EXPECT_NUM(v, 10);
+}
+
+TEST(InterpreterBindError, RightSideNotFunction) {
+    EXPECT_THROW(
+        runProgram("(1) =>> 42;"),
+        RuntimeError
+    );
+}
+
+TEST(InterpreterBindError, TooManyBoundArguments) {
+    EXPECT_THROW(
+        runProgram(R"(
+            fun int f(a:int, b:int) {
+                return a + b;
+            }
+            g = (1,2,3) =>> f;
+            g();
+        )"),
+        RuntimeError
+    );
+}
+
+TEST(InterpreterBindError, WrongArityAfterBind) {
+    EXPECT_THROW(
+        runProgram(R"(
+            fun int f(a:int, b:int, c:int) {
+                return a + b + c;
+            }
+            g = (1) =>> f;
+            g(2);
+        )"),
+        RuntimeError
+    );
+}
+
+TEST(InterpreterBindEdge, TupleWithExpressions) {
+    auto v = runProgram(R"(
+        fun int add3(a:int,b:int,c:int) {
+            return a + b + c;
+        }
+        g = (1+1, 2*2) =>> add3;
+        g(3);
+    )");
+    EXPECT_NUM(v, 9);
+}
+
+TEST(InterpreterBindEdge, TupleWithCall) {
+    auto v = runProgram(R"(
+        fun int inc(x:int) { return x+1; }
+        fun int add(a:int,b:int) { return a+b; }
+        g = (inc(4)) =>> add;
+        g(5);
+    )");
+    EXPECT_NUM(v, 10);
+}
+
+TEST(InterpreterBindBehavior, BindReturnsFunction) {
+    auto v = runProgram(R"(
+        fun int add(a:int,b:int){ return a+b; }
+        f = (2) =>> add;
+        g = f;
+        g(3);
+    )");
+    EXPECT_NUM(v, 5);
+}
+
+TEST(InterpreterBindBehavior, BindWithRecursiveFunction) {
+    auto v = runProgram(R"(
+        fun int fact(n:int) {
+            if (n <= 1){
+             return 1;
+            }
+            return n * fact(n - 1);
+        }
+        f = (5) =>> fact;
+        f();
+    )");
+    EXPECT_NUM(v, 120);
+}
+
+TEST(InterpreterDecorator, BasicDecorator) {
+    auto v = runProgram(R"(
+        fun int ident(x:int) {
+            return x;
+        }
+
+        fun int add1(f:fun, x:int) {
+            return f(x + 1);
+        }
+
+        decorated = ident &*& add1;
+        decorated(7);
+    )");
+    EXPECT_NUM(v, 8);
+}
+
+TEST(InterpreterDecorator, MultiplyBeforeCall) {
+    auto v = runProgram(R"(
+        fun int square(x:int) {
+            return x * x;
+        }
+
+        fun int deco(f:fun, x:int) {
+            return f(x * 2);
+        }
+
+        g = square &*& deco;
+        g(3);
+    )");
+    EXPECT_NUM(v, 36);
+}
+
+TEST(InterpreterDecorator, ChainedDecorators) {
+    auto v = runProgram(R"(
+        fun int ident(x:int) { return x; }
+
+        fun int inc(f:fun, x:int) {
+            return f(x + 1);
+        }
+
+        fun int dbl(f:fun, x:int) {
+            return f(x * 2);
+        }
+
+        f = ident &*& inc;
+        g = f &*& dbl;
+
+        g(3);
+    )");
+    EXPECT_NUM(v, 7);
+}
+
+TEST(InterpreterDecorator, DecoratorChangesResult) {
+    auto v = runProgram(R"(
+        fun int f(x:int) { return x; }
+
+        fun bool deco(f:fun, x:int) {
+            return f(x) > 5;
+        }
+
+        g = f &*& deco;
+        g(10);
+    )");
+    EXPECT_BOOL(v, true);
+}
+
+TEST(InterpreterDecorator, NestedDecoratorCall) {
+    auto v = runProgram(R"(
+        fun int add1(x:int) { return x + 1; }
+
+        fun int deco(f:fun, x:int) {
+            return f(f(x));
+        }
+
+        g = add1 &*& deco;
+        g(3);
+    )");
+    EXPECT_NUM(v, 5);
+}
+
+TEST(InterpreterDecoratorError, LeftNotFunction) {
+    EXPECT_THROW(
+        runProgram(R"(
+            fun int deco(f:fun, x:int) { return f(x); }
+            42 &*& deco;
+        )"),
+        RuntimeError
+    );
+}
+
+TEST(InterpreterDecoratorError, RightNotFunction) {
+    EXPECT_THROW(
+        runProgram(R"(
+            fun int f(x:int) { return x; }
+            f &*& 123;
+        )"),
+        RuntimeError
+    );
+}
+
+TEST(InterpreterDecoratorError, DecoratorWrongArity) {
+    EXPECT_THROW(
+        runProgram(R"(
+            fun int f(x:int) { return x; }
+
+            fun int deco(f:fun) { return 0; }
+
+            g = f &*& deco;
+            g(1);
+        )"),
+        RuntimeError
+    );
+}
+
+TEST(InterpreterDecoratorEdge, DecoratorAfterBind) {
+    auto v = runProgram(R"(
+        fun int add(a:int,b:int) { return a+b; }
+
+        fun int deco(f:fun, x:int) {
+            return f(x + 1);
+        }
+
+        f = (10) =>> add;
+        g = f &*& deco;
+
+        g(5);
+    )");
+    EXPECT_NUM(v, 16);
+}
+
+TEST(InterpreterDecoratorEdge, BindAfterDecorator) {
+    EXPECT_THROW(
+        runProgram(R"(
+        fun int add(a:int,b:int) { return a+b; }
+
+        fun int deco(f:fun, x:int) {
+            return f(x * 2);
+        }
+
+        g = add &*& deco;
+        h = (3) =>> g;
+        h(4);
+        )"),
+        RuntimeError
+    );
+}
+
+TEST(InterpreterDecoratorEdge, DecoratorAsValue) {
+    auto v = runProgram(R"(
+        fun int ident(x:int){ return x; }
+
+        fun int deco(f:fun, x:int){
+            return f(x + 1);
+        }
+
+        fun int apply(f:fun, x:int){
+            return f(x);
+        }
+
+        g = ident &*& deco;
+        apply(g, 4);
+    )");
+    EXPECT_NUM(v, 5);
+}
+
+TEST(InterpreterDecoratorBehavior, DecoratorReturnsFunction) {
+    auto v = runProgram(R"(
+        fun int ident(x:int){ return x; }
+
+        fun fun deco(f:fun, x:int){
+            return f;
+        }
+
+        g = ident &*& deco;
+        h = g(10);
+        h(3);
+    )");
+    EXPECT_INT(v, 3);
+}
+
+TEST(InterpreterDecoratorBehavior, RecursiveWithDecorator) {
+    auto v = runProgram(R"(
+        fun int fact(n:int){
+            if (n <= 1) {return 1;}
+            return n * fact(n - 1);
+        }
+
+        fun int deco(f:fun, x:int){
+            return f(x);
+        }
+
+        g = fact &*& deco;
+        g(5);
+    )");
+    EXPECT_NUM(v, 120);
+}

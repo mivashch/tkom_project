@@ -14,6 +14,8 @@ namespace minilang::ast {
     void BinaryExpr::accept(ASTVisitor& v) { v.visit(*this); }
     void CallExpr::accept(ASTVisitor& v) { v.visit(*this); }
     void AssignExpr::accept(ASTVisitor& v) { v.visit(*this); }
+    void TupleExpr::accept(ASTVisitor& v) { v.visit(*this); }
+
 
     void ExprStmt::accept(ASTVisitor& v) { v.visit(*this); }
     void VarDeclStmt::accept(ASTVisitor& v) { v.visit(*this); }
@@ -23,5 +25,6 @@ namespace minilang::ast {
     void ForStmt::accept(ASTVisitor& v) { v.visit(*this); }
     void FuncDeclStmt::accept(ASTVisitor& v) { v.visit(*this); }
     void Program::accept(ASTVisitor& v) { v.visit(*this); }
+
 
 }

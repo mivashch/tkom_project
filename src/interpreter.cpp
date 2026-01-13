@@ -168,46 +168,111 @@ void Interpreter::visit(BinaryExpr& e) {
         lastValue_ = asBool(l) && asBool(r);
     else if (e.op == "||")
         lastValue_ = asBool(l) || asBool(r);
+    else if (e.op == "&*&") {
+        auto baseFn = std::get_if<FunctionPtr>(&l);
+        auto decoFn = std::get_if<FunctionPtr>(&r);
 
-    else if (e.op == "&*&" || e.op == "=>>")
-        throw RuntimeError(e.pos, "Operator not implemented: " + e.op);
+        if (!baseFn || !*baseFn || !decoFn || !*decoFn)
+            throw RuntimeError(e.pos, "Decorator requires two functions");
 
+        Function& base = **baseFn;
+        Function& deco = **decoFn;
+
+        if (deco.params.size() != base.params.size() + 1)
+            throw RuntimeError(
+                e.pos,
+                "Decorator must take (function + base arguments)"
+            );
+
+        auto result = std::make_shared<Function>();
+
+        result->params = base.params;
+
+        result->builtin =
+            [this, base = *baseFn, deco = *decoFn]
+            (const std::vector<Value>& args) -> Value {
+
+                std::vector<Value> decoArgs;
+                decoArgs.reserve(args.size() + 1);
+
+                decoArgs.push_back(Value(base));
+                decoArgs.insert(decoArgs.end(), args.begin(), args.end());
+
+                return invoke(Value(deco), decoArgs, {});
+        };
+
+        lastValue_ = result;
+    }
+
+    else if (e.op == "=>>") {
+        std::vector<Value> boundArgs;
+
+        if (auto tuplePtr = std::get_if<std::shared_ptr<TupleValue>>(&l)) {
+            boundArgs = (*tuplePtr)->elements;
+        } else {
+            boundArgs.push_back(l);
+        }
+
+        auto fnPtr = std::get_if<FunctionPtr>(&r);
+        if (!fnPtr || !*fnPtr)
+            throw RuntimeError(e.pos, "Right side of =>> must be function");
+
+        auto& fn = **fnPtr;
+
+        if (boundArgs.size() > fn.params.size())
+            throw RuntimeError(e.pos, "Too many bound arguments");
+
+        auto result = std::make_shared<Function>();
+
+        result->params.assign(
+            fn.params.begin() + boundArgs.size(),
+            fn.params.end()
+        );
+
+        result->builtin =
+            [this, fnPtr = *fnPtr, boundArgs](const std::vector<Value>& callArgs) -> Value {
+
+                std::vector<Value> fullArgs;
+                fullArgs.reserve(boundArgs.size() + callArgs.size());
+
+                fullArgs.insert(fullArgs.end(), boundArgs.begin(), boundArgs.end());
+                fullArgs.insert(fullArgs.end(), callArgs.begin(), callArgs.end());
+
+                return invoke(
+                    Value(fnPtr),
+                    fullArgs,
+                    {}
+                );
+        };
+
+        lastValue_ = result;
+    }
     else
         throw RuntimeError(e.pos, "Unknown binary operator: " + e.op);
 }
 
-
-
-void Interpreter::visit(CallExpr& e) {
-    e.callee->accept(*this);
-    Value callee = lastValue_;
-
-    std::vector<Value> args;
-    for (auto& a : e.args) {
-        a->accept(*this);
-        args.push_back(lastValue_);
-    }
-
+Value Interpreter::invoke(
+    const Value& callee,
+    const std::vector<Value>& args,
+    Position pos
+) {
     auto fnPtr = std::get_if<FunctionPtr>(&callee);
     if (!fnPtr || !*fnPtr)
-        throw RuntimeError(e.pos, "Value is not callable");
+        throw RuntimeError(pos, "Value is not callable");
 
     Function& fn = **fnPtr;
 
-    if (args.size() != fn.params.size()) {
+    if (args.size() != fn.params.size())
         throw RuntimeError(
-            e.pos,
+            pos,
             "Wrong number of arguments: expected " +
             std::to_string(fn.params.size()) +
             ", got " +
             std::to_string(args.size())
         );
-    }
 
-    if (fn.builtin) {
-        lastValue_ = fn.builtin(args);
-        return;
-    }
+    if (fn.builtin)
+        return fn.builtin(args);
 
     Environment local;
     local.parent = env_;
@@ -220,16 +285,27 @@ void Interpreter::visit(CallExpr& e) {
 
     try {
         fn.body->accept(*this);
-        lastValue_ = std::monostate{};
-    } catch (ReturnSignal& r) {
-        lastValue_ = r.value;
+        env_ = saved;
+        return std::monostate{};
     }
-
-    env_ = saved;
+    catch (ReturnSignal& r) {
+        env_ = saved;
+        return r.value;
+    }
 }
 
+void Interpreter::visit(CallExpr& e) {
+    e.callee->accept(*this);
+    Value callee = lastValue_;
 
+    std::vector<Value> args;
+    for (auto& a : e.args) {
+        a->accept(*this);
+        args.push_back(lastValue_);
+    }
 
+    lastValue_ = invoke(callee, args, e.pos);
+}
 
 void Interpreter::visit(ExprStmt& s) {
     if (s.expr) s.expr->accept(*this);
@@ -317,3 +393,16 @@ void Interpreter::visit(Program& p) {
     for (auto& s : p.stmts)
         s->accept(*this);
 }
+
+void Interpreter::visit(TupleExpr& e) {
+    auto tuple = std::make_shared<TupleValue>();
+
+    for (auto& el : e.elements) {
+        el->accept(*this);
+        tuple->elements.push_back(lastValue_);
+    }
+
+    lastValue_ = tuple;
+}
+
+
