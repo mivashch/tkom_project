@@ -1157,3 +1157,29 @@ TEST(TypeCoercionError, CompareNonNumericString) {
     );
 }
 
+TEST(ConstVariable, ReassignFails) {
+    EXPECT_THROW(
+        runProgram(R"(
+            const i = 2;
+            i = 3;
+        )"),
+        RuntimeError
+    );
+}
+
+TEST(ConstVariable, ReadAllowed) {
+    auto v = runProgram(R"(
+        const i = 2;
+        i;
+    )");
+    EXPECT_INT(v, 2);
+}
+
+TEST(NonConstVariable, ReassignWorks) {
+    auto v = runProgram(R"(
+        x = 1;
+        x = 3;
+        x;
+    )");
+    EXPECT_INT(v, 3);
+}

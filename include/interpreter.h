@@ -28,8 +28,10 @@ namespace minilang {
         std::vector<Value> elements;
     };
 
-
-
+    struct VarSlot {
+        Value value;
+        bool isConst;
+    };
 
     struct Function {
         std::vector<std::string> params;
@@ -38,17 +40,18 @@ namespace minilang {
     };
 
     struct Environment {
-        std::unordered_map<std::string, Value> vars;
-        Environment *parent = nullptr;
+        std::unordered_map<std::string, VarSlot> vars;
+        Environment* parent = nullptr;
 
-        Value &lookup(const std::string &name);
+        VarSlot& lookupSlot(const std::string& name);
+        Value& lookup(const std::string& name);
 
-        bool existsLocal(const std::string &name) const;
+        bool exists(const std::string& name) const;
+        bool existsLocal(const std::string& name) const;
 
-        bool exists(const std::string &name) const;
-
-        void define(const std::string &name, Value v);
+        void define(const std::string& name, Value v, bool isConst);
     };
+
 
     struct OutputValue {
         std::ostream& os;

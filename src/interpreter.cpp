@@ -14,11 +14,22 @@ template<class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
 
-Value& Environment::lookup(const std::string& name) {
-    if (vars.count(name)) return vars[name];
-    if (parent) return parent->lookup(name);
+VarSlot& Environment::lookupSlot(const std::string& name) {
+    if (vars.count(name))
+        return vars.at(name);
+    if (parent)
+        return parent->lookupSlot(name);
     throw RuntimeError({}, "Undefined variable: " + name);
 }
+
+Value& Environment::lookup(const std::string& name) {
+    return lookupSlot(name).value;
+}
+
+void Environment::define(const std::string& name, Value v, bool isConst) {
+    vars[name] = VarSlot{ std::move(v), isConst };
+}
+
 bool Environment::existsLocal(const std::string& name) const {
     return vars.count(name);
 }
@@ -29,23 +40,25 @@ bool Environment::exists(const std::string& name) const {
     return false;
 }
 
-void Environment::define(const std::string& name, Value v) {
-    vars[name] = std::move(v);
-}
 
 
 Interpreter::Interpreter() {
     env_ = new Environment;
 
-    env_->vars["print"] = std::make_shared<Function>(Function{
-        {"x"},
-        nullptr,
-        [](const std::vector<Value>& args) -> Value {
-            std::visit(OutputValue{std::cout}, args[0]);
-            std::cout << "\n";
-            return {};
-        }
-    });
+    env_->define(
+        "print",
+        Value(std::make_shared<Function>(Function{
+            {"x"},
+            nullptr,
+            [](const std::vector<Value>& args) -> Value {
+                std::visit(OutputValue{std::cout}, args[0]);
+                std::cout << "\n";
+                return std::monostate{};
+            }
+        })),
+       true
+    );
+
 }
 
 
@@ -188,13 +201,31 @@ void Interpreter::visit(IdentifierExpr& e) {
 
 void Interpreter::visit(AssignExpr& e) {
     e.value->accept(*this);
+    Value rhs = lastValue_;
 
     if (env_->exists(e.target)) {
-        env_->lookup(e.target) = lastValue_;
-    } else {
-        env_->define(e.target, lastValue_);
+        auto& slot = env_->lookupSlot(e.target);
+
+        if (slot.isConst)
+            throw RuntimeError(
+                e.pos,
+                "Cannot assign to const variable '" + e.target + "'"
+            );
+
+        slot.value = rhs;
     }
+    else {
+        env_->define(
+            e.target,
+            rhs,
+            false
+        );
+    }
+
+    lastValue_ = rhs;
 }
+
+
 
 
 void Interpreter::visit(UnaryExpr& e) {
@@ -391,8 +422,14 @@ Value Interpreter::invoke(
     Environment local;
     local.parent = env_;
 
-    for (size_t i = 0; i < args.size(); ++i)
-        local.vars[fn.params[i]] = args[i];
+    for (size_t i = 0; i < args.size(); ++i) {
+        local.define(
+            fn.params[i],
+            args[i],
+            false
+        );
+    }
+
 
     Environment* saved = env_;
     env_ = &local;
@@ -428,12 +465,12 @@ void Interpreter::visit(ExprStmt& s) {
 void Interpreter::visit(VarDeclStmt& s) {
     s.init->accept(*this);
 
-    if (env_->existsLocal(s.name)) {
+    if (env_->existsLocal(s.name))
         throw RuntimeError(s.pos, "Variable redeclared: " + s.name);
-    }
 
-    env_->define(s.name, lastValue_);
+    env_->define(s.name, lastValue_, s.isConst);
 }
+
 
 
 void Interpreter::visit(ReturnStmt& s) {
@@ -499,7 +536,7 @@ void Interpreter::visit(FuncDeclStmt& s) {
     fn->body = std::move(s.body);
     fn->builtin = nullptr;
 
-    env_->define(s.name, fn);
+    env_->define(s.name, fn, true);
 }
 
 
