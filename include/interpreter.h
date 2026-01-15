@@ -39,22 +39,30 @@ namespace minilang {
         std::function<Value(const std::vector<Value> &)> builtin;
     };
 
+    struct ExecResult {
+        bool hasReturn = false;
+        Value value = std::monostate{};
+    };
+
+
     struct Environment {
         std::unordered_map<std::string, VarSlot> vars;
-        Environment* parent = nullptr;
+        Environment *parent = nullptr;
 
-        VarSlot& lookupSlot(const std::string& name);
-        Value& lookup(const std::string& name);
+        VarSlot &lookupSlot(const std::string &name);
 
-        bool exists(const std::string& name) const;
-        bool existsLocal(const std::string& name) const;
+        Value &lookup(const std::string &name);
 
-        void define(const std::string& name, Value v, bool isConst);
+        bool exists(const std::string &name) const;
+
+        bool existsLocal(const std::string &name) const;
+
+        void define(const std::string &name, Value v, bool isConst);
     };
 
 
     struct OutputValue {
-        std::ostream& os;
+        std::ostream &os;
 
         void operator()(std::monostate) const {
             os << "<null>";
@@ -68,7 +76,7 @@ namespace minilang {
             os << v;
         }
 
-        void operator()(const std::string& v) const {
+        void operator()(const std::string &v) const {
             os << v;
         }
 
@@ -76,11 +84,11 @@ namespace minilang {
             os << std::boolalpha << v;
         }
 
-        void operator()(const FunctionPtr&) const {
+        void operator()(const FunctionPtr &) const {
             os << "<function>";
         }
 
-        void operator()(const std::shared_ptr<TupleValue>& t) const {
+        void operator()(const std::shared_ptr<TupleValue> &t) const {
             if (!t) {
                 os << "<tuple:null>";
                 return;
@@ -95,7 +103,6 @@ namespace minilang {
             os << ")";
         }
     };
-
 
 
     struct ReturnSignal {
@@ -120,6 +127,7 @@ namespace minilang {
         void visit(ast::CallExpr &) override;
 
         void visit(ast::AssignExpr &) override;
+
         void visit(ast::TupleExpr &) override;
 
         void visit(ast::ExprStmt &) override;
@@ -137,7 +145,8 @@ namespace minilang {
         void visit(ast::FuncDeclStmt &) override;
 
         void visit(ast::Program &) override;
-        Value invoke( const Value& callee, const std::vector<Value>& args, Position pos);
+
+        Value invoke(const Value &callee, const std::vector<Value> &args, Position pos);
 
         bool isTruthy(const Value &v);
 
@@ -146,19 +155,40 @@ namespace minilang {
         static double asDouble(const Value &v);
 
         static bool asBool(const Value &v);
-        bool forConditionHolds(const ast::ForStmt& s);
-        long long toInt(const Value& v);
-        double toNumber(const Value& v);
-        std::string toString(const Value& v);
-        bool toBool(const Value& v);
+
+        bool forConditionHolds(const ast::ForStmt &s);
+
+        long long toInt(const Value &v);
+
+        double toNumber(const Value &v);
+
+        std::string toString(const Value &v);
+
+        bool toBool(const Value &v);
+
+        Value evalBinary( const ast::BinaryOp &op, const Value &l, const Value &r, Position pos, std::string& ops);
+        Value evalAdd(const Value& l, const Value& r);
+        Value evalDiv(const Value& l, const Value& r, Position pos);
+        Value evalCompare( const ast::BinaryOp& op, const Value& l, const Value& r);
+        Value evalSub(const Value& l, const Value& r);
+        Value evalMul(const Value& l, const Value& r);
+        Value evalMod(const Value& l, const Value& r, Position pos);
+        Value evalAnd(const Value& l, const Value& r);
+        Value evalOr(const Value& l, const Value& r);
+        Value evalDecorator(const Value& l, const Value& r, Position pos);
+        Value evalBind(const Value& l, const Value& r, Position pos);
+
+        static bool isComparison(const ast::BinaryOp& op);
 
 
         Value &getLastValue();
 
     private:
         Environment *env_;
+        std::unique_ptr<Environment> root_;
         std::unordered_map<std::string, FunctionPtr> functions_;
 
         Value lastValue_;
+        ExecResult exec_;
     };
 }

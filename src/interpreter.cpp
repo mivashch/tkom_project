@@ -42,9 +42,9 @@ bool Environment::exists(const std::string& name) const {
 
 
 
-Interpreter::Interpreter() {
-    env_ = new Environment;
-
+Interpreter::Interpreter()  {
+    root_ = std::make_unique<Environment>();
+    env_ = root_.get();
     env_->define(
         "print",
         Value(std::make_shared<Function>(Function{
@@ -67,57 +67,76 @@ void Interpreter::execute(Program& p) {
 }
 
 bool Interpreter::isTruthy(const Value& v) {
-    return std::visit([](auto&& x) -> bool {
-        using T = std::decay_t<decltype(x)>;
-
-        if constexpr (std::is_same_v<T, std::monostate>)
-            throw std::runtime_error("Invalid condition value");
-
-        else if constexpr (std::is_same_v<T, bool>)
-            return x;
-
-        else if constexpr (std::is_same_v<T, long long>)
+    return std::visit(overloaded{
+        [](bool b) {
+            return b;
+        },
+        [](long long x) {
             return x != 0;
-
-        else if constexpr (std::is_same_v<T, double>)
+        },
+        [](double x) {
             return x != 0.0;
-
-        else if constexpr (std::is_same_v<T, std::string>)
-            return !x.empty();
-        return false ;
+        },
+        [](const std::string& s) {
+            return !s.empty();
+        },
+        [](std::monostate) -> bool {
+            throw RuntimeError({}, "Invalid condition value");
+        },
+        [](auto&) -> bool {
+            throw RuntimeError({}, "Invalid condition value");
+        }
     }, v);
 }
+
 
 long long Interpreter::asInt(const Value& v) {
-    if (auto p = std::get_if<long long>(&v)) return *p;
-    throw RuntimeError({}, "Expected integer");
-}
-
-double Interpreter::asDouble(const Value& v) {
-    if (auto p = std::get_if<double>(&v)) return *p;
-    if (auto i = std::get_if<long long>(&v)) return *i;
-    throw RuntimeError({}, "Expected number");
-}
-
-bool Interpreter::asBool(const Value& v) {
-    return std::visit([](auto&& x) -> bool {
-        using T = std::decay_t<decltype(x)>;
-        if constexpr (std::is_same_v<T, std::monostate>)
-            return false;
-        else if constexpr (std::is_same_v<T, bool>)
+    return std::visit(overloaded{
+        [](long long x) -> long long {
             return x;
-        else if constexpr (std::is_same_v<T, long long>)
-            return x != 0;
-        else if constexpr (std::is_same_v<T, double>)
-            return x != 0.0;
-        else if constexpr (std::is_same_v<T, std::string>)
-            // return !x.empty();
-            throw RuntimeError({}, "Invalid boolean context");
-
-        else
-            throw RuntimeError({}, "Invalid boolean context");
+        },
+        [](auto&) -> long long {
+            throw RuntimeError({}, "Expected integer");
+        }
     }, v);
 }
+
+
+double Interpreter::asDouble(const Value& v) {
+    return std::visit(overloaded{
+        [](double x) -> double {
+            return x;
+        },
+        [](long long x) -> double {
+            return static_cast<double>(x);
+        },
+        [](auto&) -> double {
+            throw RuntimeError({}, "Expected number");
+        }
+    }, v);
+}
+
+
+bool Interpreter::asBool(const Value& v) {
+    return std::visit(overloaded{
+        [](bool b) -> bool {
+            return b;
+        },
+        [](long long x) -> bool {
+            return x != 0;
+        },
+        [](double x) -> bool {
+            return x != 0.0;
+        },
+        [](std::monostate) -> bool {
+            return false;
+        },
+        [](auto&) -> bool {
+            throw RuntimeError({}, "Invalid boolean context");
+        }
+    }, v);
+}
+
 
 Value &Interpreter::getLastValue() {
     return lastValue_;
@@ -230,10 +249,202 @@ void Interpreter::visit(AssignExpr& e) {
 
 void Interpreter::visit(UnaryExpr& e) {
     e.rhs->accept(*this);
+
     if (e.op == "-") {
-        lastValue_ = -std::get<long long>(lastValue_);
+        lastValue_ = std::visit(overloaded{
+            [](long long x) -> Value { return -x; },
+            [](double x)    -> Value { return -x; },
+            [](auto&) -> Value {
+                throw RuntimeError({}, "Unary '-' expects numeric value");
+            }
+        }, lastValue_);
     }
 }
+
+Value Interpreter::evalAdd(const Value& l, const Value& r) {
+    if (std::holds_alternative<std::string>(l))
+        return toString(l) + toString(r);
+
+    return toNumber(l) + toNumber(r);
+}
+
+Value Interpreter::evalDiv(const Value& l, const Value& r, Position pos) {
+    double denom = toNumber(r);
+    if (denom == 0.0)
+        return std::numeric_limits<double>::infinity();
+    return toNumber(l) / denom;
+}
+
+Value Interpreter::evalCompare(
+    const BinaryOp& op,
+    const Value& l,
+    const Value& r
+) {
+    double a = toNumber(l);
+    double b = toNumber(r);
+
+    if (op == BinaryOp::Eq) return a == b;
+    if (op == BinaryOp::Ne) return a != b;
+    if (op == BinaryOp::Ls)  return a <  b;
+    if (op == BinaryOp::Le) return a <= b;
+    if (op == BinaryOp::Ge)  return a >  b;
+    return a >= b;
+}
+
+Value Interpreter::evalSub(const Value& l, const Value& r) {
+    return toNumber(l) - toNumber(r);
+}
+
+Value Interpreter::evalMul(const Value& l, const Value& r) {
+    return toNumber(l) * toNumber(r);
+}
+
+Value Interpreter::evalMod(const Value& l, const Value& r, Position pos) {
+    long long a = toInt(l);
+    long long b = toInt(r);
+
+    if (b == 0)
+        throw RuntimeError(pos, "Modulo by zero");
+
+    return a % b;
+}
+
+Value Interpreter::evalAnd(const Value& l, const Value& r) {
+    return toBool(l) && toBool(r);
+}
+
+Value Interpreter::evalOr(const Value& l, const Value& r) {
+    return toBool(l) || toBool(r);
+}
+
+Value Interpreter::evalDecorator(
+    const Value& l,
+    const Value& r,
+    Position pos
+) {
+    auto baseFn = std::get_if<FunctionPtr>(&l);
+    auto decoFn = std::get_if<FunctionPtr>(&r);
+
+    if (!baseFn || !*baseFn || !decoFn || !*decoFn)
+        throw RuntimeError(pos, "Decorator requires two functions");
+
+    Function& base = **baseFn;
+    Function& deco = **decoFn;
+
+    if (deco.params.size() != base.params.size() + 1)
+        throw RuntimeError(
+            pos,
+            "Decorator must take (function + base arguments)"
+        );
+
+    auto result = std::make_shared<Function>();
+    result->params = base.params;
+
+    result->builtin =
+        [this, base = *baseFn, deco = *decoFn]
+        (const std::vector<Value>& args) -> Value {
+
+            std::vector<Value> decoArgs;
+            decoArgs.reserve(args.size() + 1);
+
+            decoArgs.push_back(Value(base));
+            decoArgs.insert(decoArgs.end(), args.begin(), args.end());
+
+            return invoke(
+                Value(deco),
+                decoArgs,
+                {}
+            );
+    };
+
+    return result;
+}
+
+Value Interpreter::evalBind(
+    const Value& l,
+    const Value& r,
+    Position pos
+) {
+    std::vector<Value> boundArgs;
+
+    if (auto tuplePtr = std::get_if<std::shared_ptr<TupleValue>>(&l)) {
+        boundArgs = (*tuplePtr)->elements;
+    } else {
+        boundArgs.push_back(l);
+    }
+
+    auto fnPtr = std::get_if<FunctionPtr>(&r);
+    if (!fnPtr || !*fnPtr)
+        throw RuntimeError(pos, "Right side of =>> must be function");
+
+    Function& fn = **fnPtr;
+
+    if (boundArgs.size() > fn.params.size())
+        throw RuntimeError(pos, "Too many bound arguments");
+
+    auto result = std::make_shared<Function>();
+
+    result->params.assign(
+        fn.params.begin() + boundArgs.size(),
+        fn.params.end()
+    );
+
+    result->builtin =
+        [this, fnPtr = *fnPtr, boundArgs]
+        (const std::vector<Value>& callArgs) -> Value {
+
+            std::vector<Value> fullArgs;
+            fullArgs.reserve(boundArgs.size() + callArgs.size());
+
+            fullArgs.insert(fullArgs.end(),
+                            boundArgs.begin(),
+                            boundArgs.end());
+
+            fullArgs.insert(fullArgs.end(),
+                            callArgs.begin(),
+                            callArgs.end());
+
+            return invoke(
+                Value(fnPtr),
+                fullArgs,
+                {}
+            );
+    };
+
+    return result;
+}
+
+bool Interpreter::isComparison(const BinaryOp& op) {
+    return op == BinaryOp::Eq || op == BinaryOp::Ne||
+           op == BinaryOp::Ls || op == BinaryOp::Le ||
+           op == BinaryOp::Gt  || op == BinaryOp::Ge;
+}
+
+Value Interpreter::evalBinary(
+    const BinaryOp& op,
+    const Value& l,
+    const Value& r,
+    Position pos,
+    std::string& ops
+) {
+    if (op == BinaryOp::Add)   return evalAdd(l, r);
+    if (op == BinaryOp::Sub)   return evalSub(l, r);
+    if (op == BinaryOp::Mul)   return evalMul(l, r);
+    if (op == BinaryOp::Div)   return evalDiv(l, r, pos);
+    if (op == BinaryOp::Mod)   return evalMod(l, r, pos);
+
+    if (isComparison(op))
+        return evalCompare(op, l, r);
+
+    if (op == BinaryOp::And)  return evalAnd(l, r);
+    if (op == BinaryOp::Or)  return evalOr(l, r);
+
+    if (op == BinaryOp::Decorator) return evalDecorator(l, r, pos);
+    if (op == BinaryOp::Bind) return evalBind(l, r, pos);
+
+    throw RuntimeError(pos, "Unknown binary operator: " + ops);
+}
+
 
 void Interpreter::visit(BinaryExpr& e) {
     e.lhs->accept(*this);
@@ -242,159 +453,9 @@ void Interpreter::visit(BinaryExpr& e) {
     e.rhs->accept(*this);
     Value r = lastValue_;
 
-    const std::string& op = e.op;
-
-    if (e.op == "+") {
-        if (std::holds_alternative<std::string>(l)) {
-            lastValue_ = toString(l) + toString(r);
-        }
-        else {
-            lastValue_ = toNumber(l) + toNumber(r);
-        }
-        return;
-    }
-
-    if (op == "-") {
-        lastValue_ = toNumber(l) - toNumber(r);
-        return;
-    }
-
-    if (op == "*") {
-        lastValue_ = toNumber(l) * toNumber(r);
-        return;
-    }
-
-    if (op == "/") {
-        double denom = toNumber(r);
-        if (denom == 0.0)
-            lastValue_ = std::numeric_limits<double>::infinity();
-        else
-            lastValue_ = toNumber(l) / denom;
-        return;
-    }
-
-    if (op == "%") {
-        long long a = toInt(l);
-        long long b = toInt(r);
-        if (b == 0)
-            throw RuntimeError(e.pos, "Modulo by zero");
-        lastValue_ = a % b;
-        return;
-    }
-
-    if (op == "==" || op == "!=" ||
-        op == "<"  || op == "<=" ||
-        op == ">"  || op == ">=") {
-
-        bool result;
-
-            double a = toNumber(l);
-            double b = toNumber(r);
-
-            if (op == "==") result = a == b;
-            else if (op == "!=") result = a != b;
-            else if (op == "<") result = a < b;
-            else if (op == "<=") result = a <= b;
-            else if (op == ">") result = a > b;
-            else result = a >= b;
-
-
-        lastValue_ = result;
-        return;
-    }
-
-    if (op == "&&") {
-        lastValue_ = asBool(l) && asBool(r);
-        return;
-    }
-
-    if (op == "||") {
-        lastValue_ = asBool(l) || asBool(r);
-        return;
-    }
-
-     if (e.op == "&*&") {
-        auto baseFn = std::get_if<FunctionPtr>(&l);
-        auto decoFn = std::get_if<FunctionPtr>(&r);
-
-        if (!baseFn || !*baseFn || !decoFn || !*decoFn)
-            throw RuntimeError(e.pos, "Decorator requires two functions");
-
-        Function& base = **baseFn;
-        Function& deco = **decoFn;
-
-        if (deco.params.size() != base.params.size() + 1)
-            throw RuntimeError(
-                e.pos,
-                "Decorator must take (function + base arguments)"
-            );
-
-        auto result = std::make_shared<Function>();
-
-        result->params = base.params;
-
-        result->builtin =
-            [this, base = *baseFn, deco = *decoFn]
-            (const std::vector<Value>& args) -> Value {
-
-                std::vector<Value> decoArgs;
-                decoArgs.reserve(args.size() + 1);
-
-                decoArgs.push_back(Value(base));
-                decoArgs.insert(decoArgs.end(), args.begin(), args.end());
-
-                return invoke(Value(deco), decoArgs, {});
-        };
-
-        lastValue_ = result;
-    }
-
-    else if (e.op == "=>>") {
-        std::vector<Value> boundArgs;
-
-        if (auto tuplePtr = std::get_if<std::shared_ptr<TupleValue>>(&l)) {
-            boundArgs = (*tuplePtr)->elements;
-        } else {
-            boundArgs.push_back(l);
-        }
-
-        auto fnPtr = std::get_if<FunctionPtr>(&r);
-        if (!fnPtr || !*fnPtr)
-            throw RuntimeError(e.pos, "Right side of =>> must be function");
-
-        auto& fn = **fnPtr;
-
-        if (boundArgs.size() > fn.params.size())
-            throw RuntimeError(e.pos, "Too many bound arguments");
-
-        auto result = std::make_shared<Function>();
-
-        result->params.assign(
-            fn.params.begin() + boundArgs.size(),
-            fn.params.end()
-        );
-
-        result->builtin =
-            [this, fnPtr = *fnPtr, boundArgs](const std::vector<Value>& callArgs) -> Value {
-
-                std::vector<Value> fullArgs;
-                fullArgs.reserve(boundArgs.size() + callArgs.size());
-
-                fullArgs.insert(fullArgs.end(), boundArgs.begin(), boundArgs.end());
-                fullArgs.insert(fullArgs.end(), callArgs.begin(), callArgs.end());
-
-                return invoke(
-                    Value(fnPtr),
-                    fullArgs,
-                    {}
-                );
-        };
-
-        lastValue_ = result;
-    }
-    else
-        throw RuntimeError(e.pos, "Unknown binary operator: " + e.op);
+    lastValue_ = evalBinary(e.opt, l, r, e.pos, e.op);
 }
+
 
 Value Interpreter::invoke(
     const Value& callee,
@@ -408,42 +469,33 @@ Value Interpreter::invoke(
     Function& fn = **fnPtr;
 
     if (args.size() != fn.params.size())
-        throw RuntimeError(
-            pos,
-            "Wrong number of arguments: expected " +
-            std::to_string(fn.params.size()) +
-            ", got " +
-            std::to_string(args.size())
-        );
+        throw RuntimeError(pos, "...");
 
     if (fn.builtin)
         return fn.builtin(args);
 
     Environment local;
     local.parent = env_;
-
-    for (size_t i = 0; i < args.size(); ++i) {
-        local.define(
-            fn.params[i],
-            args[i],
-            false
-        );
-    }
-
+    for (size_t i = 0; i < args.size(); ++i)
+        local.define(fn.params[i], args[i], false);
 
     Environment* saved = env_;
     env_ = &local;
 
-    try {
-        fn.body->accept(*this);
-        env_ = saved;
-        return std::monostate{};
+    exec_ = {};
+    fn.body->accept(*this);
+
+    env_ = saved;
+
+    if (exec_.hasReturn) {
+        Value val = exec_.value;
+        exec_ = {};
+        return val ;
     }
-    catch (ReturnSignal& r) {
-        env_ = saved;
-        return r.value;
-    }
+
+    return std::monostate{};
 }
+
 
 void Interpreter::visit(CallExpr& e) {
     e.callee->accept(*this);
@@ -479,8 +531,10 @@ void Interpreter::visit(ReturnStmt& s) {
     else
         lastValue_ = std::monostate{};
 
-    throw ReturnSignal{ lastValue_ };
+    exec_.hasReturn = true;
+    exec_.value = lastValue_;
 }
+
 
 
 void Interpreter::visit(BlockStmt& b) {
@@ -489,11 +543,14 @@ void Interpreter::visit(BlockStmt& b) {
     Environment* saved = env_;
     env_ = &local;
 
-    for (auto& st : b.stmts)
+    for (auto& st : b.stmts) {
         st->accept(*this);
-
+        if (exec_.hasReturn)
+            break;
+    }
     env_ = saved;
 }
+
 
 void Interpreter::visit(IfStmt& s) {
     s.cond->accept(*this);
@@ -504,6 +561,7 @@ void Interpreter::visit(IfStmt& s) {
         s.elseBlock->accept(*this);
     }
 }
+
 
 bool Interpreter::forConditionHolds(const ForStmt& s) {
     if (!s.cond)
@@ -520,10 +578,14 @@ void Interpreter::visit(ForStmt& s) {
     while (forConditionHolds(s)) {
         s.body->accept(*this);
 
+        if (exec_.hasReturn)
+            break;
+
         if (s.post)
             s.post->accept(*this);
     }
 }
+
 
 
 void Interpreter::visit(FuncDeclStmt& s) {
@@ -541,9 +603,13 @@ void Interpreter::visit(FuncDeclStmt& s) {
 
 
 void Interpreter::visit(Program& p) {
-    for (auto& s : p.stmts)
+    for (auto& s : p.stmts) {
         s->accept(*this);
+        if (exec_.hasReturn)
+            throw RuntimeError({}, "Return outside function");
+    }
 }
+
 
 void Interpreter::visit(TupleExpr& e) {
     auto tuple = std::make_shared<TupleValue>();

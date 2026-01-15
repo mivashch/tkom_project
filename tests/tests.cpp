@@ -188,7 +188,7 @@ TEST(InterpreterError, WrongArity) {
 TEST(InterpreterError, ReturnOutsideFunction) {
     EXPECT_THROW(
         runProgram("return 5;"),
-        ReturnSignal
+        RuntimeError
     );
 }
 

@@ -373,7 +373,7 @@ std::unique_ptr<Expr> Parser::parseFuncOpExpr() {
 
         auto right = parseLogicExpr();
 
-        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),std::move(left),std::move(right),t.getPos());
+        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),tokenToBinaryOp(t.getKind()), std::move(left),std::move(right),t.getPos());
         left = std::move(b);
     }
 
@@ -390,7 +390,7 @@ std::unique_ptr<Expr> Parser::parseLogicExpr() {
 
         auto right = parseCompExpr();
 
-        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),std::move(left),std::move(right),t.getPos());
+        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),tokenToBinaryOp(t.getKind()), std::move(left),std::move(right),t.getPos());
         left = std::move(b);
     }
     return left;
@@ -411,7 +411,7 @@ std::unique_ptr<Expr> Parser::parseCompExpr() {
 
             auto right = parseAddExpr();
 
-        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),std::move(left),std::move(right),t.getPos());
+        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),tokenToBinaryOp(t.getKind()),std::move(left),std::move(right),t.getPos());
             return b;
         }
         default:
@@ -429,7 +429,7 @@ std::unique_ptr<Expr> Parser::parseAddExpr() {
 
         auto right = parseMulExpr();
 
-        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),std::move(left),std::move(right),t.getPos());
+        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),tokenToBinaryOp(t.getKind()),std::move(left),std::move(right),t.getPos());
         left = std::move(b);
     }
     return left;
@@ -446,7 +446,7 @@ std::unique_ptr<Expr> Parser::parseMulExpr() {
 
         auto right = parseUnaryExpr();
 
-        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),std::move(left),std::move(right),t.getPos());
+        auto b = std::make_unique<BinaryExpr>(t.getLexeme(),tokenToBinaryOp(t.getKind()),std::move(left),std::move(right),t.getPos());
         left = std::move(b);
     }
     return left;
@@ -537,6 +537,47 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
             return nullptr;
     }
 }
+
+BinaryOp Parser::tokenToBinaryOp(TokenKind kind) {
+    switch (kind) {
+        case TokenKind::OpPlus:
+            return BinaryOp::Add;
+        case TokenKind::OpMinus:
+            return BinaryOp::Sub;
+        case TokenKind::OpMul:
+            return BinaryOp::Mul;
+        case TokenKind::OpDiv:
+            return BinaryOp::Div;
+        case TokenKind::OpMod:
+            return BinaryOp::Mod;
+        case TokenKind::OpEq:
+            return BinaryOp::Eq;
+        case TokenKind::OpNotEq:
+            return BinaryOp::Ne;
+        case TokenKind::OpLess:
+            return BinaryOp::Ls;
+        case TokenKind::OpLessEq:
+            return BinaryOp::Le;
+        case TokenKind::OpGreater:
+            return BinaryOp::Gt;
+        case TokenKind::OpGreaterEq:
+            return BinaryOp::Ge;
+        case TokenKind::OpAnd:
+            return BinaryOp::And;
+        case TokenKind::OpOr:
+            return BinaryOp::Or;
+        case TokenKind::OpRefStarRef:
+            return BinaryOp::Decorator;
+        case TokenKind::OpDoubleArrow:
+            return BinaryOp::Bind;
+        default:
+            throw ParseError(
+                cur_.getPos(),
+                "Token is not a binary operator: " + toString(kind)
+            );
+    }
+}
+
 
 
 std::unique_ptr<LiteralExpr> Parser::makeLiteralFromToken(const Token& t) {

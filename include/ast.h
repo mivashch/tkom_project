@@ -14,6 +14,13 @@ struct ASTVisitor;
 
 using Position = ::minilang::Position;
 
+enum class BinaryOp {
+    Add, Sub, Mul, Div, Mod,
+    Eq, Ne, Ls, Le, Gt, Ge,
+    And, Or,
+    Decorator, Bind
+};
+
 struct Node {
     virtual ~Node() = default;
     Node(Position pos) : pos(pos) {}
@@ -52,13 +59,15 @@ struct UnaryExpr : Expr {
 
 struct BinaryExpr : Expr {
     std::string op;
+    BinaryOp opt;
     std::unique_ptr<Expr> lhs;
     std::unique_ptr<Expr> rhs;
     BinaryExpr(std::string op,
+      BinaryOp opt,
       std::unique_ptr<Expr> lhs,
       std::unique_ptr<Expr> rhs,
       Position p)
-: op(std::move(op)),lhs(std::move(lhs)), rhs(std::move(rhs)) {pos = p;}
+: op(std::move(op)),opt(opt), lhs(std::move(lhs)), rhs(std::move(rhs)) {pos = p;}
     void accept(ASTVisitor &v) override;
 };
 

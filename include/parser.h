@@ -105,6 +105,8 @@ private:
     // arg_list = func_op_expr { "," func_op_expr }
     std::vector<std::unique_ptr<Expr>> parseArgList();
 
+    BinaryOp tokenToBinaryOp(TokenKind kind);
+
     std::unique_ptr<LiteralExpr> makeLiteralFromToken(const Token& t);
 };
 
