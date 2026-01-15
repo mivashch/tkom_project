@@ -1,0 +1,157 @@
+/* ================= PROGRAM ================= */
+
+program         = { statement } ;
+
+/* ================= STATEMENTS ================= */
+
+statement       = var_decl
+                | func_decl
+                | if_stmt
+                | for_stmt
+                | return_stmt
+                | expr_stmt
+                | ";" ;
+
+
+expr_stmt       = expression , ";" ;
+
+/* ================= DECLARATIONS ================= */
+
+var_decl        = [ "const" ] , identifier , "=" , expression , ";" ;
+
+/* ================= ASSIGNMENT ================= */
+
+assign_stmt     = identifier , "=" , expression , ";" ;
+
+/* ================= TYPES (annotation only) ================= */
+
+type_spec       = "int"
+                | "float"
+                | "str"
+                | "bool"
+                | "fun" ;
+
+/* ================= FUNCTIONS ================= */
+
+func_decl       = "fun" , [ type_spec ] , identifier ,
+                  "(" , [ param_list ] , ")" ,
+                  block ;
+
+param_list      = parameter , { "," , parameter } ;
+
+parameter       = [ "const" ] , identifier , [ ":" , type_spec ] ;
+
+/* ---------------- Return ---------------- */
+
+return_stmt     = "return" , [ expression ] , ";" ;
+
+/* ================= BLOCK ================= */
+
+block           = "{" , { statement } , "}" ;
+
+/* ================= CONTROL FLOW ================= */
+
+if_stmt         = "if" , "(" , expression , ")" , block ,
+                  [ "else" , block ] ;
+
+for_stmt        = "for" , "(" ,
+                    [ for_init ] , ";" ,
+                    [ expression ] , ";" ,
+                    [ expression ] ,
+                  ")" ,
+                  block ;
+
+for_init        = var_decl
+                | assign_stmt ;
+
+/* ================= EXPRESSIONS ================= */
+
+/*
+ * Precedence (low → high):
+ * 1. = >> , &*&
+ * 2. ||, &&
+ * 3. comparisons
+ * 4. + -
+ * 5. * / %
+ * 6. unary
+ * 7. call
+ * 8. primary
+ */
+
+expression      = bind_expr ;
+
+bind_expr       = logic_expr ,
+                  { ( "&*&" | "=>>" ) , logic_expr } ;
+
+logic_expr      = comp_expr ,
+                  { ( "&&" | "||" ) , comp_expr } ;
+
+comp_expr       = add_expr ,
+                  [ ( "==" | "!=" | "<" | "<=" | ">" | ">=" ) , add_expr ] ;
+
+add_expr        = mul_expr ,
+                  { ( "+" | "-" ) , mul_expr } ;
+
+mul_expr        = unary_expr ,
+                  { ( "*" | "/" | "%" ) , unary_expr } ;
+
+unary_expr      = [ "-" | "+" | "!" ] , call_expr ;
+
+assign_expr     = identifier , "=" , assignment| bind_expr ;
+
+/* ---------------- Calls ---------------- */
+
+call_expr       = primary ,
+                  { "(" , [ arg_list ] , ")" } ;
+
+arg_list        = expression , { "," , expression } ;
+
+/* ================= PRIMARY ================= */
+
+primary         = literal
+                | identifier
+                | tuple
+                | "(" , expression , ")" ;
+
+/* ---------------- Tuple ---------------- */
+/* Used mainly for =>> (bind front) */
+
+tuple           = "(" , expression , "," , expression ,
+                  { "," , expression } , ")" ;
+
+/* ================= LITERALS ================= */
+
+literal         = number
+                | string
+                | "true"
+                | "false" ;
+
+/* ---------------- Numbers ---------------- */
+
+number          = integer , [ frac_part ] ;
+
+integer         = "0"
+                | non_zero_digit , { digit } ;
+
+frac_part       = "." , digit , { digit } ;
+
+digit           = "0" | non_zero_digit ;
+
+non_zero_digit  = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+/* ---------------- Strings ---------------- */
+
+string          = "\"" , { character } , "\"" ;
+
+character       = unescaped | escape_sequence ;
+
+unescaped       = %x20-21 | %x23-7E ;
+
+escape_sequence = "\\" , ( "n" | "t" | "\\" | "\"" ) ;
+
+/* ---------------- Identifiers ---------------- */
+
+identifier      = letter , { letter | digit | "_" } ;
+
+letter          = "A" | ... | "Z"
+                | "a" | ... | "z" ;
